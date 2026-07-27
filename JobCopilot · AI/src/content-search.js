@@ -82,6 +82,8 @@
   }
 
   async function scrape(count) {
+    // Wait for BOSS custom @font-face to load (required for innerText to render PUA digits)
+    if (document.fonts && document.fonts.ready) { await document.fonts.ready; }
     var seen = {};
     var jobs = [];
     var stall = 0;
