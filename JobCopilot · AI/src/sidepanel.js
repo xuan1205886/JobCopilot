@@ -2,6 +2,15 @@
 var $ = function(id) { return document.getElementById(id); };
 var CFG_FIELDS = ['dsKey', 'resumeText', 'keyword', 'city', 'count'];
 
+// 持久连接：保持 SW 存活，避免被浏览器回收导致 "Receiving end does not exist"
+var _keepAlivePort = chrome.runtime.connect({ name: 'sidepanel-keepalive' });
+_keepAlivePort.onDisconnect.addListener(function() {
+  // SW 被回收后自动重连，350ms 后重试（给它启动时间）
+  setTimeout(function() {
+    _keepAlivePort = chrome.runtime.connect({ name: 'sidepanel-keepalive' });
+  }, 350);
+});
+
 // ===== Tab 切换 =====
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -60,7 +69,7 @@ $('btnCollect').addEventListener('click', async function() {
   if (!$('keyword').value.trim()) return addLog('请先填岗位关键词', 'error');
   $('reviewCard').style.display = 'none';
   setRunning(true);
-  chrome.runtime.sendMessage({ type: 'START_COLLECT' });
+  sendToSW({ type:'START_COLLECT' });
 });
 
 $('btnDeliver').addEventListener('click', function() {
@@ -68,15 +77,15 @@ $('btnDeliver').addEventListener('click', function() {
   if (!ids.length) return addLog('请至少勾选一个岗位', 'error');
   setRunning(true);
   addLog('开始投递 ' + ids.length + ' 个岗位', 'info');
-  chrome.runtime.sendMessage({ type: 'START_DELIVER', jobIds: ids });
+  sendToSW({ type:'START_DELIVER', jobIds: ids });
 });
 
 $('btnPause').addEventListener('click', function() {
-  if ($('btnPause').textContent === '暂停') { $('btnPause').textContent = '继续'; chrome.runtime.sendMessage({ type: 'PAUSE' }); }
-  else { $('btnPause').textContent = '暂停'; chrome.runtime.sendMessage({ type: 'RESUME' }); }
+  if ($('btnPause').textContent === '暂停') { $('btnPause').textContent = '继续'; sendToSW({ type:'PAUSE' }); }
+  else { $('btnPause').textContent = '暂停'; sendToSW({ type:'RESUME' }); }
 });
-$('btnStop').addEventListener('click', function() { chrome.runtime.sendMessage({ type: 'STOP' }); setRunning(false); });
-$('btnReset').addEventListener('click', function() { chrome.runtime.sendMessage({ type: 'RESET' }); $('reviewCard').style.display = 'none'; setRunning(false); });
+$('btnStop').addEventListener('click', function() { sendToSW({ type:'STOP' }); setRunning(false); });
+$('btnReset').addEventListener('click', function() { sendToSW({ type:'RESET' }); $('reviewCard').style.display = 'none'; setRunning(false); });
 $('clearLog').addEventListener('click', function() { $('log').innerHTML = ''; });
 
 $('selAll').addEventListener('change', function(e) {
