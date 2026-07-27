@@ -1,4 +1,4 @@
-// ===== BOSS自动投递 Service Worker：编排 收集→筛选→审核→投递 + DeepSeek + 轨迹追踪 =====
+// ===== BOSS Service Worker =====
 importScripts('/src/selectors.js', '/src/tracker.js');
 const DS_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 const DS_MODEL = 'deepseek-chat';
@@ -15,7 +15,6 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 try { chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {}); } catch (e) {}
 
-// ── 小工具 ──
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const rand = (a, b) => sleep(a + Math.random() * (b - a));
 function log(text, level) { chrome.runtime.sendMessage({ type: 'LOG', text: text, level: level || 'info' }).catch(() => {}); }
@@ -27,16 +26,15 @@ function resumeFull(cfg) { return (cfg.resumeText || '').trim(); }
 function jobInfo(j) { return '岗位：' + (j.name || '') + '\n技能标签：' + ((j.tags || []).join('、')) + '\n薪资：' + (j.salary || '') + '\n公司：' + (j.company || ''); }
 function findJob(id) { for (var i = 0; i < state.jobs.length; i++) if (state.jobs[i].id === id) return state.jobs[i]; return null; }
 
-// ── DeepSeek ──
 async function callDS(messages, maxTokens) {
   const cfg = await getCfg();
-  if (!cfg.dsKey) throw new Error('未配置DeepSeek API Key');
+  if (!cfg.dsKey) throw new Error('no API key');
   const resp = await fetch(DS_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + cfg.dsKey },
     body: JSON.stringify({ model: DS_MODEL, messages: messages, max_tokens: maxTokens || 500, temperature: 0.5 })
   });
-  if (!resp.ok) { const t = await resp.text().catch(() => ''); throw new Error('DeepSeek ' + resp.status + ': ' + t.slice(0, 120)); }
+  if (!resp.ok) { const t = await resp.text().catch(() => ''); throw new Error('DS ' + resp.status + ': ' + t.slice(0, 120)); }
   const data = await resp.json();
   return (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
 }
@@ -47,7 +45,7 @@ async function screenJob(cfg, job) {
   const raw = await callDS([{ role: 'system', content: sys }, { role: 'user', content: user }], 200);
   let p = null;
   try { p = JSON.parse(raw); } catch (e) { const m = raw && raw.match(/\{[\s\S]*\}/); if (m) { try { p = JSON.parse(m[0]); } catch (e2) {} } }
-  if (!p) return { match: false, reason: 'AI解析失败' };
+  if (!p) return { match: false, reason: 'AI parse fail' };
   return { match: p.match === true, reason: p.reason || '' };
 }
 
@@ -59,7 +57,6 @@ async function genGreetingFromJD(cfg, job, jd) {
   return (raw || '').trim();
 }
 
-// ── tab 注入 + 发消息 ──
 async function ensureInjected(tabId, file) {
   try { await chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['src/selectors.js', file] }); } catch (e) {}
 }
@@ -100,7 +97,7 @@ async function ensureTab(url) {
 async function getSearchTab(cfg) { return ensureTab(buildSearchUrl(cfg)); }
 function curUrl(tabId) { return new Promise(res => chrome.tabs.get(tabId, t => res((t && t.url) || ''))); }
 
-// ── 流程：收集 + 筛选 ──
+// ── Collect + Screen ──
 async function runCollect() {
   state.aborted = false; state.paused = false;
   state.jobs = []; state.screened = []; state.greetings = {}; state.results = [];
@@ -108,15 +105,14 @@ async function runCollect() {
   const cfg = await getCfg();
   if (!cfg.dsKey) { log('请先填写 DeepSeek API Key', 'error'); state.phase = 'idle'; pushPhase(); return; }
   if (!cfg.keyword) { log('请先填写岗位关键词', 'error'); state.phase = 'idle'; pushPhase(); return; }
-  if (!(cfg.resumeText || '').trim()) { log('请先在设置里填写"简历文字"', 'error'); state.phase = 'idle'; pushPhase(); return; }
+  if (!(cfg.resumeText || '').trim()) { log('请先填写简历文字', 'error'); state.phase = 'idle'; pushPhase(); return; }
 
   const _c = resolveCity(cfg);
-  log('打开搜索页：' + cfg.keyword + ' | 城市：' + (_c.found ? _c.name : '全国'));
-  if (cfg.city && !_c.found) log('城市"' + cfg.city + '"未识别，已按全国搜索', 'warn');
+  log('打开搜索页：' + cfg.keyword + ' | ' + (_c.found ? _c.name : '全国'));
   const tab = await getSearchTab(cfg);
   const count = parseInt(cfg.count) || 20;
 
-  log('收集岗位中（目标 ' + count + ' 个）...');
+  log('收集中（目标 ' + count + '）...');
   await ensureInjected(tab.id, 'src/content-search.js');
   const r = await sendToTab(tab.id, { type: 'SCRAPE', count: count });
   if (!r || !r.success) { log('收集失败：' + (r && r.error), 'error'); state.phase = 'idle'; pushPhase(); return; }
@@ -124,9 +120,8 @@ async function runCollect() {
   log('收集到 ' + state.jobs.length + ' 个岗位', 'success');
   if (!state.jobs.length) { state.phase = 'idle'; pushPhase(); return; }
 
-  // 筛选（并发3）
   state.phase = 'screening'; pushPhase();
-  log('AI 筛选中（DeepSeek）...');
+  log('AI 筛选中...');
   let done = 0; const total = state.jobs.length;
   progress(0, total, '筛选');
   const CONC = 3;
@@ -136,7 +131,7 @@ async function runCollect() {
     await Promise.all(batch.map(async (job) => {
       let res;
       try { res = await screenJob(cfg, job); }
-      catch (e) { res = { match: false, reason: '筛选异常:' + e.message }; }
+      catch (e) { res = { match: false, reason: 'error:' + e.message }; }
       state.screened.push(Object.assign({}, job, { match: res.match, reason: res.reason }));
       done++; progress(done, total, '筛选');
     }));
@@ -148,7 +143,7 @@ async function runCollect() {
   chrome.runtime.sendMessage({ type: 'SCREENED', screened: state.screened }).catch(() => {});
 }
 
-// ── 流程：投递 ──
+// ── Deliver ──
 async function runDeliver(jobIds) {
   state.aborted = false; state.paused = false; state.results = [];
   state.phase = 'delivering'; pushPhase();
@@ -163,31 +158,46 @@ async function runDeliver(jobIds) {
   for (let k = 0; k < ids.length; k++) {
     if (state.aborted) break; await waitIfPaused();
     const job = findJob(ids[k]);
-    if (!job) { log('[' + (k + 1) + '/' + ids.length + '] 找不到岗位数据，跳过', 'warn'); continue; }
+    if (!job) { log('[' + (k + 1) + '/' + ids.length + '] 找不到岗位，跳过', 'warn'); continue; }
     log('[' + (k + 1) + '/' + ids.length + '] ' + job.name + ' - ' + (job.company || ''));
 
     const tab = await ensureTab(searchUrl);
     await ensureInjected(tab.id, 'src/content-search.js');
-    log('  读取岗位JD...');
+    log('  读取JD...');
     const jdr = await sendToTab(tab.id, { type: 'OPEN_JD', job: job });
     const jd = (jdr && jdr.jd) || '';
 
-    log('  AI生成专属招呼语...');
+    log('  生成招呼语...');
     let greeting = '';
     try { greeting = await genGreetingFromJD(cfg, job, jd); } catch (e) { log('  生成失败：' + e.message, 'error'); }
     if (!greeting) { recordFail(job, '招呼语生成失败'); log('  招呼语为空，跳过', 'warn'); progress(k + 1, ids.length, '投递'); continue; }
     state.greetings[job.id] = greeting;
 
-    log('  建立联系（立即沟通 → 继续沟通）...');
-    await sendToTab(tab.id, { type: 'GO_CHAT', job: job });
-    await waitTabComplete(tab.id); await sleep(2500);
+    // Click "立即沟通" -> "继续沟通"
+    log('  建立联系...');
+    const goRes = await sendToTab(tab.id, { type: 'GO_CHAT', job: job });
+    await sleep(2000);
 
+    // Chat tab detection: could be current tab navigated OR new tab opened
+    let chatTab = null;
     const u = await curUrl(tab.id);
-    if (u.indexOf('/web/geek/chat') < 0) { recordFail(job, '未跳转聊天页'); log('  未进入聊天页，跳过', 'error'); progress(k + 1, ids.length, '投递'); continue; }
-    await ensureInjected(tab.id, 'src/content-chat.js');
-    log('  发简历图片 + 招呼语...');
-    const r = await sendToTab(tab.id, { type: 'SEND_ACTIVE', image: cfg.resumeImage || '', greeting: greeting, company: job.company || '' });
-    if (r && r.success) { recordOk(job); state.processed[job.id] = 1; await chrome.storage.local.set({ processed: state.processed }); log('  ✓ 投递成功', 'success'); }
+    if (u.indexOf('/web/geek/chat') >= 0) {
+      chatTab = tab;
+    } else {
+      // Check all tabs for a chat page (BOSS might open chat in a new tab)
+      const allTabs = await chrome.tabs.query({ url: '*://*.zhipin.com/web/geek/chat*' });
+      if (allTabs.length > 0) {
+        chatTab = allTabs[0];
+        await chrome.tabs.update(chatTab.id, { active: true });
+        await sleep(1500);
+      }
+    }
+    if (!chatTab) { recordFail(job, '未进入聊天页'); log('  未进入聊天页，跳过', 'error'); progress(k + 1, ids.length, '投递'); continue; }
+    await waitTabComplete(chatTab.id);
+    await ensureInjected(chatTab.id, 'src/content-chat.js');
+    log('  发简历 + 招呼语...');
+    const r = await sendToTab(chatTab.id, { type: 'SEND_ACTIVE', image: cfg.resumeImage || '', greeting: greeting, company: job.company || '' });
+    if (r && r.success) { recordOk(job); state.processed[job.id] = 1; await chrome.storage.local.set({ processed: state.processed }); log('  ✓ 成功', 'success'); }
     else { recordFail(job, (r && r.error) || '发送失败'); log('  失败：' + (r && r.error), 'error'); }
     progress(k + 1, ids.length, '投递');
     await rand(2500, 4500);
@@ -208,7 +218,7 @@ function finishDeliver() {
   chrome.runtime.sendMessage({ type: 'DONE', ok: ok, fail: fail }).catch(() => {});
 }
 
-// ── 消息入口 ──
+// ── Messages ──
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'DEBUG_SALARY') { log(msg.text, 'info'); return; }
   if (msg.type === 'START_COLLECT') { runCollect(); sendResponse({ ok: true }); return; }
