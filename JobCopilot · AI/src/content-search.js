@@ -12,7 +12,7 @@
     var result = "";
     for (var i = 0; i < s.length; i++) {
       var c = s.charCodeAt(i);
-      if (c >= 0xE000 && c <= 0xF8FF) { var ascii = c - 0xE000; if ((ascii >= 0x30 && ascii <= 0x39) || (ascii >= 0x41 && ascii <= 0x5A) || (ascii >= 0x61 && ascii <= 0x7A)) { result += String.fromCharCode(ascii); } continue; }
+      if (c >= 0xE000 && c <= 0xF8FF) continue;  // PUA (should not appear if innerText used)
       if (c >= 0xD800 && c <= 0xDFFF) { i++; continue; }
       if (c >= 0x200B && c <= 0x200F) continue;
       if (c === 0x2028 || c === 0x2029 || c === 0x202F) continue;
@@ -52,7 +52,7 @@
     var salEl = card.querySelector(SELECTORS.jobs.jobSalary);
     var salary = "";
     if (salEl) {
-      var rawText = salEl.textContent || "";
+      var rawText = salEl.innerText || salEl.textContent || "";  // innerText uses rendered font (BOSS PUA -> digits)
       salary = cleanText(rawText);
       if (!window._debugCount) window._debugCount = 0;
       if (window._debugCount < 3) {
