@@ -1,123 +1,113 @@
 <div align="center">
 
-# 🤖 JobCopilot · AI 求职智能体
+# 🤖 JobCopilot · AI 求职智能体 v1.1
 
-**基于 LLM 的智能求职助手：AI 岗位匹配 + 千岗千面招呼语 + 自动投递**
+**AI 岗位匹配 + 千岗千面招呼语 + 自动投递 + 投递追踪 + 回复率分析**
 
-让求职不再重复劳动 —— AI 帮你筛岗位、写招呼语，你只管审核，剩下的交给它。
+> Fork 自 [JobCopilot](https://github.com/huluobo2237-pixel/JobCopilot) (87⭐ MIT)，增加数据追踪与分析能力
 
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Edge%20%7C%20Chrome-brightgreen.svg)
-![Manifest](https://img.shields.io/badge/Manifest-V3-orange.svg)
-![AI](https://img.shields.io/badge/AI-DeepSeek-purple.svg)
-
-[功能特性](#-功能特性) · [快速开始](#-快速开始) · [工作流程](#-工作流程) · [免责声明](#️-免责声明)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Edge%20%7C%20Chrome-brightgreen.svg)](https://www.microsoft.com/edge)
+[![Manifest](https://img.shields.io/badge/Manifest-V3-orange.svg)](https://developer.chrome.com/docs/extensions/mv3/)
+[![AI](https://img.shields.io/badge/AI-DeepSeek-purple.svg)](https://platform.deepseek.com/)
 
 </div>
 
 ---
 
-## 📖 简介
-
-在 BOSS 直聘海投时，你是否厌倦了：一个个点岗位、复制粘贴千篇一律的招呼语、投到一堆根本不匹配的岗位？
-
-**BOSS 自动投递助手** 帮你把这套重复劳动自动化：
-
-> 设定关键词 → 自动收集岗位 → **AI 按你的简历智能筛选** → 你勾选确认 → 自动**逐个**建立联系、发送简历图片和**为每个岗位量身定制的招呼语**。
-
-每条招呼语都基于该岗位的 JD 和你的简历生成，开头精准命中岗位核心技能（如「熟悉 Python、数据分析，做过……」），让 HR 一眼看到匹配点。
-
 ## ✨ 功能特性
 
-- 🔍 **自动搜索收集**：按关键词、城市、行业、公司规模自动抓取岗位，数量自定义
-- 🤖 **AI 智能筛选**：DeepSeek 结合你的简历，自动剔除不匹配/超纲岗位，只投够得着的
-- ✍️ **千岗千面招呼语**：每个岗位单独生成「熟悉 XXX、做过 XXX」格式招呼语，精准对口
-- ✅ **审核确认机制**：投递前列出匹配岗位（含筛选理由），你勾选确认，绝不盲投
-- 📎 **自动发送简历**：先发简历图片，再发招呼语，一个岗位完整闭环再投下一个
-- 📊 **实时日志面板**：进度、成功/失败一目了然，支持暂停 / 停止 / 重置
-- 🛡️ **拟人化节奏**：随机延迟、逐个投递，自然防风控；已投去重不重复打扰
+### 🚀 智能投递（原版功能）
+- 🔍 **自动搜索收集**：按关键词、城市自动抓取 BOSS 直聘岗位
+- 🤖 **AI 智能筛选**：DeepSeek 结合你的简历，自动剔除不匹配岗位
+- ✍️ **千岗千面招呼语**：每个岗位单独生成个性化招呼语，精准对口
+- 📎 **自动发送简历**：先发简历图片，再发招呼语，一个岗位完整闭环
+- 🛡️ **拟人化节奏**：随机延迟、逐个投递，自然防风控
 
-## 📸 效果预览
-
-> <img width="1025" height="222" alt="image" src="https://github.com/user-attachments/assets/cb1f9d4e-99b2-4bca-ad85-2201c9d306fa" />
-<img width="1917" height="932" alt="屏幕截图 2026-06-18 132323" src="https://github.com/user-attachments/assets/07e24cb6-a31c-4cce-bf76-eb37f20f4965" />
-<img width="1917" height="932" alt="屏幕截图 2026-06-18 132323" src="https://github.com/user-attachments/assets/ce34f0d1-344c-4afb-81d9-4e89984d8be3" />
-<img width="1918" height="971" alt="屏幕截图 2026-06-18 132634" src="https://github.com/user-attachments/assets/0ddceb7e-85ee-44ee-adca-c14cff29cf14" />
-<img width="1918" height="972" alt="屏幕截图 2026-06-18 132652" src="https://github.com/user-attachments/assets/84f94b35-1afb-4354-9899-aa2a8752f8c5" />
-
-> 投递流程图
-<img width="1080" height="1510" alt="96ed071aa0c52a2f18e9d0d7a8f07904_compress" src="https://github.com/user-attachments/assets/5288b3ba-03a6-4712-b113-22dccd631282" />
-
-```
-配置岗位/城市/数量  →  开始收集+AI筛选  →  审核勾选  →  自动投递  →  ✓ 完成
-```
+### 🆕 v1.1 新增
+- 📋 **投递追踪表**：完整记录公司、岗位、薪资、招呼语、投递时间、回复状态
+- 📊 **回复率分析**：核心指标面板、每日趋势图、技能/公司/城市多维度分析
+- 💡 **招呼语优化**：基于高回复率数据分析，推荐最佳技能关键词和话术模板
+- 📝 **多简历版本**：支持 A/B Test，不同方向岗位用不同版本简历
+- 📥 **数据导出**：一键导出 CSV，方便在 Excel 中进一步分析
+- 🎯 **状态管理**：手动标记 HR 已读、已回复、约面试、不合适等状态
 
 ## 🚀 快速开始
 
-### 1. 下载
+### 1. 安装
 ```bash
-git clone https://github.com/huluobo2237-pixel/JobCopilot.git
+git clone https://github.com/xuan1205886/JobCopilot.git
 ```
-或直接 `Code → Download ZIP` 解压。
 
-### 2. 加载扩展（Edge / Chrome 通用）
+### 2. 加载扩展
 1. 打开 `edge://extensions`（Chrome 为 `chrome://extensions`）
 2. 打开右上角 **开发者模式**
-3. 点 **加载解压缩的扩展**，选择项目文件夹
+3. 点 **加载解压缩的扩展**，选择 `JobCopilot · AI` 文件夹
 4. 点击扩展图标，打开侧边栏
 
 ### 3. 配置
 | 配置项 | 说明 |
 |--------|------|
-| DeepSeek API Key | 用于 AI 筛选和生成招呼语，[官网申请](https://platform.deepseek.com/) |
+| DeepSeek API Key | [官网申请](https://platform.deepseek.com/) |
 | 简历图片 | 投递时发给 HR 的简历截图 |
-| 简历文字 | 用于让 AI 生成更精准的招呼语 |
-| 关键词 / 城市 | 岗位搜索条件 |
-| 收集数量 | 每次抓取的岗位数 |
+| 简历文字 | AI 筛选和招呼语的质量取决于它的详细程度 |
+| 关键词 / 城市 | 如：`Python后端` / `沈阳` |
+| 收集数量 | 每次抓取岗位数（建议 20-40） |
 
-### 4. 使用
-**开始收集 + AI 筛选** → 在 **审核确认** 区勾选要投的岗位 → **投递选中** → 看着日志自动跑完。
-
-## 🔄 工作流程
-
+### 4. 使用流程
 ```
-┌─────────┐   ┌──────────┐   ┌──────────┐   ┌──────────────────────────┐
-│ 配置条件 │ → │ 收集岗位  │ → │ AI 筛选   │ → │ 人工审核勾选              │
-└─────────┘   └──────────┘   └──────────┘   └──────────────────────────┘
-                                                          │
-                                                          ▼
-              对每个选中岗位逐个闭环：
-              立即沟通 → 进入聊天 → 发简历图片 → 发定制招呼语 → 下一个
+设置页配好简历版本 → 填写关键词/城市 → 开始收集+AI筛选 → 审核勾选 → 自动投递
+                                                                             ↓
+                                                             追踪页看回复 → 分析页优化策略
 ```
 
 ## 🛠️ 技术栈
 
-- **浏览器扩展**：Manifest V3，原生 JavaScript，无框架
-- **AI 模型**：DeepSeek（`deepseek-chat`）做岗位筛选与招呼语生成
-- **架构**：Service Worker 编排 + Content Scripts 操作页面 + 侧边栏 UI
+- **浏览器扩展**：Manifest V3，原生 JavaScript，零依赖
+- **AI 模型**：DeepSeek（`deepseek-chat`）做岗位筛选 + 招呼语生成
+- **数据存储**：Chrome Storage Local（纯本地，不上传任何数据）
+- **架构**：Service Worker 编排 + Content Scripts 操作页面 + Side Panel UI
 
 ## 📁 项目结构
 
 ```
-src/
-├── background.js      # 核心编排：收集→筛选→投递 + DeepSeek 调用
-├── content-search.js  # 搜索页：抓取岗位 + 建立联系
-├── content-chat.js    # 聊天页：发送简历图片 + 招呼语
-├── selectors.js       # DOM 选择器与城市编码
-└── sidepanel.*        # 侧边栏界面（配置 / 审核 / 日志）
+JobCopilot · AI/
+├── manifest.json           # 扩展配置
+├── icons/                  # 图标
+├── src/
+│   ├── background.js       # 核心编排 + DeepSeek + 追踪API
+│   ├── tracker.js          # 🆕 投递追踪 + 统计分析 + 简历版本管理
+│   ├── content-search.js   # 搜索页：抓取岗位 + 建立联系
+│   ├── content-chat.js     # 聊天页：发送简历 + 招呼语
+│   ├── selectors.js        # DOM 选择器与城市编码
+│   ├── sidepanel.html      # 🆕 四Tab侧边栏 UI
+│   ├── sidepanel.js        # 🆕 完整交互逻辑
+│   └── sidepanel.css       # 🆕 样式
+└── README.md
 ```
+
+## 🆚 与原版对比
+
+| 能力 | 原版 | v1.1 |
+|------|:---:|:---:|
+| AI 筛选岗位 | ✅ | ✅ |
+| 个性化招呼语 | ✅ | ✅ |
+| 自动投递 | ✅ | ✅ |
+| 投递记录表 | ❌ | ✅ |
+| 状态管理 | ❌ | ✅ (6种状态) |
+| 回复率分析 | ❌ | ✅ |
+| 每日趋势图 | ❌ | ✅ |
+| 技能/公司排行 | ❌ | ✅ |
+| 招呼语优化建议 | ❌ | ✅ |
+| 多简历版本 | ❌ | ✅ |
+| CSV 导出 | ❌ | ✅ |
 
 ## ⚠️ 免责声明
 
-- 本项目仅供 **学习交流与个人效率提升** 使用，请勿用于商业用途或恶意刷量。
-- 自动化操作可能违反 BOSS 直聘的用户协议，使用风险由使用者自行承担。
-- 请合理设置投递数量与频率，尊重 HR、珍惜每一次沟通机会。
-- 作者不对使用本工具产生的任何后果负责。
-
-## 🤝 贡献
-
-欢迎 Issue 和 PR！如果这个项目帮到了你，点个 ⭐ Star 是对我最大的鼓励。
+- 本项目仅供 **学习交流与个人效率提升** 使用
+- 自动化操作可能违反 BOSS 直聘的用户协议，使用风险由使用者自行承担
+- 请合理设置投递数量与频率，尊重 HR、珍惜每一次沟通机会
 
 ## 📄 License
 
-[MIT](./LICENSE) © 2026
+[MIT](./LICENSE) © 2026 — 基于 [huluobo2237-pixel/JobCopilot](https://github.com/huluobo2237-pixel/JobCopilot) 增强

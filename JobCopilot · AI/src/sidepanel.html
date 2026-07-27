@@ -2,74 +2,183 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>BOSS自动投递</title>
+  <title>JobCopilot · AI求职智能体</title>
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-  <div class="header"><h1>BOSS 自动投递</h1></div>
+  <!-- Tab 导航 -->
+  <div class="tab-nav">
+    <button class="tab-btn active" data-tab="tab-deliver">🚀 投递</button>
+    <button class="tab-btn" data-tab="tab-tracker">📋 追踪</button>
+    <button class="tab-btn" data-tab="tab-analytics">📊 分析</button>
+    <button class="tab-btn" data-tab="tab-settings">⚙ 设置</button>
+  </div>
 
-  <!-- 配置 -->
-  <section class="card">
-    <div class="card-h" data-toggle="cfgBody"><span>① 配置</span><span class="chev">▾</span></div>
-    <div class="card-b" id="cfgBody">
-      <label>DeepSeek API Key</label>
-      <input type="password" id="dsKey" placeholder="sk- 开头">
+  <!-- Tab 1: 投递 -->
+  <div class="tab-content active" id="tab-deliver">
+    <!-- 配置 -->
+    <section class="card">
+      <div class="card-h" data-toggle="cfgBody"><span>① 配置</span><span class="chev">▾</span></div>
+      <div class="card-b" id="cfgBody">
+        <label>DeepSeek API Key</label>
+        <input type="password" id="dsKey" placeholder="sk- 开头">
 
-      <label>简历图片（投递时发给HR）</label>
-      <input type="file" id="resumeImg" accept="image/*">
-      <div id="imgPrev"></div>
+        <label>简历图片（投递时发给HR）</label>
+        <input type="file" id="resumeImg" accept="image/*">
+        <div id="imgPrev"></div>
 
-      <label>简历文字（必填，用于AI筛选 + 生成招呼语）</label>
-      <textarea id="resumeText" rows="5" placeholder="粘贴你的简历：技能、项目经历、教育背景、实习经历等，越详细招呼语越精准"></textarea>
+        <label>简历文字（必填，用于AI筛选 + 生成招呼语）</label>
+        <textarea id="resumeText" rows="4" placeholder="粘贴你的简历：技能、项目经历、教育背景、实习经历等，越详细招呼语越精准"></textarea>
 
-      <label>岗位关键词</label>
-      <input type="text" id="keyword" placeholder="如：数据分析 / AI应用">
+        <div class="row">
+          <div class="col"><label>岗位关键词</label><input type="text" id="keyword" placeholder="如: 数据分析 / AI应用"></div>
+          <div class="col"><label>城市</label><input type="text" id="city" placeholder="如: 沈阳 / 北京"></div>
+        </div>
 
-      <label>城市</label>
-      <input type="text" id="city" placeholder="如：沈阳 / 北京">
+        <label>收集岗位数量</label>
+        <input type="number" id="count" value="20" min="1" max="200">
 
-      <label>收集岗位数量</label>
-      <input type="number" id="count" value="20" min="1" max="200">
-
-      <button class="btn-primary" id="saveCfg">保存配置</button>
-      <span id="saved" class="ok-msg" style="display:none">✓ 已保存</span>
-    </div>
-  </section>
-
-  <!-- 运行 -->
-  <section class="card">
-    <div class="card-h"><span>② 运行</span></div>
-    <div class="card-b">
-      <button class="btn-go" id="btnCollect">开始收集 + AI筛选</button>
-      <div class="status-row">
-        <span id="phaseText">未开始</span>
-        <span id="progText"></span>
+        <button class="btn-primary" id="saveCfg">保存配置</button>
+        <span id="saved" class="ok-msg" style="display:none">✓ 已保存</span>
       </div>
-      <div class="ctrl">
-        <button id="btnPause" disabled>暂停</button>
-        <button id="btnStop" disabled>停止</button>
-        <button id="btnReset">重置</button>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- 审核 -->
-  <section class="card" id="reviewCard" style="display:none">
-    <div class="card-h"><span>③ 审核确认</span><span id="reviewCount"></span></div>
-    <div class="card-b">
-      <div class="review-tools">
-        <label class="mini"><input type="checkbox" id="selAll" checked> 全选匹配</label>
-        <button class="btn-go" id="btnDeliver">投递选中</button>
+    <!-- 运行 -->
+    <section class="card">
+      <div class="card-h"><span>② 运行</span></div>
+      <div class="card-b">
+        <button class="btn-go" id="btnCollect">开始收集 + AI筛选</button>
+        <div class="status-row">
+          <span id="phaseText">未开始</span>
+          <span id="progText"></span>
+        </div>
+        <div class="ctrl">
+          <button id="btnPause" disabled>暂停</button>
+          <button id="btnStop" disabled>停止</button>
+          <button id="btnReset">重置</button>
+        </div>
       </div>
-      <div id="reviewList"></div>
-    </div>
-  </section>
+    </section>
 
-  <!-- 日志 -->
-  <section class="card">
-    <div class="card-h"><span>日志</span><button class="mini-btn" id="clearLog">清空</button></div>
-    <div class="log" id="log"></div>
-  </section>
+    <!-- 审核 -->
+    <section class="card" id="reviewCard" style="display:none">
+      <div class="card-h"><span>③ 审核确认</span><span id="reviewCount"></span></div>
+      <div class="card-b">
+        <div class="review-tools">
+          <label class="mini"><input type="checkbox" id="selAll" checked> 全选匹配</label>
+          <button class="btn-go" id="btnDeliver">投递选中</button>
+        </div>
+        <div id="reviewList"></div>
+      </div>
+    </section>
+
+    <!-- 日志 -->
+    <section class="card">
+      <div class="card-h"><span>日志</span><button class="mini-btn" id="clearLog">清空</button></div>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+
+  <!-- Tab 2: 追踪记录 -->
+  <div class="tab-content" id="tab-tracker">
+    <section class="card">
+      <div class="card-h">
+        <span>📋 投递记录</span>
+        <div class="card-h-actions">
+          <span id="trackerCount" style="font-size:12px;color:#888;margin-right:8px"></span>
+          <button class="mini-btn" id="btnExportCSV">导出CSV</button>
+          <button class="mini-btn" id="btnClearTracker" style="color:#c92a2a">清空</button>
+        </div>
+      </div>
+      <div class="card-b" style="padding:8px">
+        <div class="tracker-filters">
+          <select id="filterStatus">
+            <option value="all">全部状态</option>
+            <option value="sent">已投递</option>
+            <option value="read">HR已读</option>
+            <option value="replied">已回复</option>
+            <option value="interview">约面试</option>
+            <option value="rejected">不合适</option>
+            <option value="expired">已过期</option>
+          </select>
+          <input type="text" id="filterCompany" placeholder="搜索公司/岗位...">
+        </div>
+        <div id="trackerList" class="tracker-list"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Tab 3: 数据分析 -->
+  <div class="tab-content" id="tab-analytics">
+    <div id="analyticsContent">
+      <section class="card">
+        <div class="card-h"><span>📊 核心指标</span></div>
+        <div class="card-b">
+          <div class="stats-grid" id="statsGrid"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><span>📈 每日投递趋势（近14天）</span></div>
+        <div class="card-b">
+          <div class="chart-bar" id="dailyChart"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><span>🏷 高回复率技能标签 TOP 10</span></div>
+        <div class="card-b">
+          <div id="tagRank"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><span>🏢 公司回复情况</span></div>
+        <div class="card-b">
+          <div id="companyRank" class="rank-list"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><span>💡 招呼语优化建议</span></div>
+        <div class="card-b">
+          <div id="greetingTips">暂无足够数据生成建议（需要至少有一条回复）</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Tab 4: 设置 -->
+  <div class="tab-content" id="tab-settings">
+    <section class="card">
+      <div class="card-h"><span>📝 简历版本管理</span></div>
+      <div class="card-b">
+        <div id="resumeVerList"></div>
+        <button class="btn-primary" id="btnAddResumeVer" style="margin-top:8px">+ 新建简历版本</button>
+        <div id="resumeVerForm" style="display:none;margin-top:10px;padding:10px;background:#f8f9fa;border-radius:6px">
+          <label>版本名称</label>
+          <input type="text" id="newResumeName" placeholder="如: 数据分析方向 / 后端开发方向">
+          <label>简历内容</label>
+          <textarea id="newResumeText" rows="4" placeholder="粘贴该版本的简历内容..."></textarea>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="btn-primary" id="btnSaveResumeVer" style="flex:1;margin-top:0">保存</button>
+            <button class="ctrl-btn" id="btnCancelResumeVer" style="flex:1">取消</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><span>ℹ 关于</span></div>
+      <div class="card-b">
+        <p style="color:#666;line-height:1.6">
+          <strong>JobCopilot v1.1.0</strong> — AI 求职智能体<br>
+          基于原版 <a href="https://github.com/huluobo2237-pixel/JobCopilot" target="_blank">JobCopilot</a> (MIT) 增强<br>
+          新增：投递追踪 · 回复率分析 · 多简历版本 · 数据导出
+        </p>
+      </div>
+    </section>
+  </div>
 
   <script src="sidepanel.js"></script>
 </body>

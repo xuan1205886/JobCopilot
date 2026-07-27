@@ -1,5 +1,5 @@
-// ===== BOSS自动投递 Service Worker：编排 收集→筛选→审核→投递 + DeepSeek =====
-importScripts('/src/selectors.js'); // 让 SW 也能用 CITY_MAP（否则城市永远是全国）
+// ===== BOSS自动投递 Service Worker：编排 收集→筛选→审核→投递 + DeepSeek + 轨迹追踪 =====
+importScripts('/src/selectors.js', '/src/tracker.js'); // CITY_MAP + 投递追踪
 const DS_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 const DS_MODEL = 'deepseek-chat';
 
@@ -88,7 +88,6 @@ function resolveCity(cfg) {
 function buildSearchUrl(cfg) {
   const c = resolveCity(cfg);
   const params = new URLSearchParams({ query: cfg.keyword || '', city: c.code });
-  // 行业/规模：BOSS 代码不确定，暂不加入（错误代码会导致搜不到任何岗位）
   return 'https://www.zhipin.com/web/geek/jobs?' + params.toString();
 }
 async function ensureTab(url) {
@@ -146,7 +145,6 @@ async function runCollect() {
   }
   const matched = state.screened.filter(j => j.match).length;
   log('筛选完成：匹配 ' + matched + ' / ' + total, 'success');
-  // 存盘：SW 可能在审核期间被浏览器回收，投递时需从存储读回
   await chrome.storage.local.set({ sw_jobs: state.jobs, sw_greetings: state.greetings, sw_screened: state.screened });
   state.phase = 'review'; pushPhase();
   chrome.runtime.sendMessage({ type: 'SCREENED', screened: state.screened }).catch(() => {});
@@ -156,7 +154,6 @@ async function runCollect() {
 async function runDeliver(jobIds) {
   state.aborted = false; state.paused = false; state.results = [];
   state.phase = 'delivering'; pushPhase();
-  // SW 可能在审核期间被回收，内存丢了就从存储读回
   if (!state.jobs.length) { const d = await chrome.storage.local.get(['sw_jobs', 'sw_greetings']); state.jobs = d.sw_jobs || []; state.greetings = d.sw_greetings || {}; }
   const cfg = await getCfg();
   if (!cfg.resumeImage) log('未上传简历图片，将只发招呼语', 'warn');
@@ -183,6 +180,7 @@ async function runDeliver(jobIds) {
     let greeting = '';
     try { greeting = await genGreetingFromJD(cfg, job, jd); } catch (e) { log('  生成失败：' + e.message, 'error'); }
     if (!greeting) { recordFail(job, '招呼语生成失败'); log('  招呼语为空，跳过', 'warn'); progress(k + 1, ids.length, '投递'); continue; }
+    state.greetings[job.id] = greeting;
 
     // 3. 点立即沟通 → 继续沟通（跳聊天页）
     log('  建立联系（立即沟通 → 继续沟通）...');
@@ -202,7 +200,11 @@ async function runDeliver(jobIds) {
   }
   finishDeliver();
 }
-function recordOk(job) { state.results.push({ id: job.id, name: job.name, ok: true }); }
+function recordOk(job) {
+  state.results.push({ id: job.id, name: job.name, ok: true });
+  const greeting = state.greetings[job.id] || '';
+  Tracker.add(job, greeting, 'default').catch(() => {});
+}
 function recordFail(job, msg) { state.results.push({ id: job.id, name: job.name, ok: false, msg: msg }); }
 function finishDeliver() {
   const ok = state.results.filter(r => r.ok).length;
@@ -221,6 +223,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'STOP') { state.aborted = true; state.paused = false; log('已停止', 'warn'); state.phase = 'idle'; pushPhase(); sendResponse({ ok: true }); return; }
   if (msg.type === 'RESET') { state.processed = {}; chrome.storage.local.set({ processed: {} }); state.jobs = []; state.screened = []; state.greetings = {}; state.results = []; state.phase = 'idle'; pushPhase(); log('已重置（清空已投记录）', 'warn'); sendResponse({ ok: true }); return; }
   if (msg.type === 'GET_STATE') { sendResponse({ phase: state.phase, screened: state.screened }); return; }
+  // 追踪相关消息
+  if (msg.type === 'TRACKER_GET_ALL') { Tracker.getAll().then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
+  if (msg.type === 'TRACKER_UPDATE_STATUS') { Tracker.updateStatus(msg.recordId, msg.status, msg.hrReply).then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
+  if (msg.type === 'TRACKER_REMOVE') { Tracker.remove(msg.recordId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+  if (msg.type === 'TRACKER_EXPORT') { Tracker.exportCSV().then(r => sendResponse(r)).catch(() => sendResponse('')); return true; }
+  if (msg.type === 'TRACKER_CLEAR') { Tracker.clearAll().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+  if (msg.type === 'ANALYTICS_GET') { Analytics.getStats().then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
+  if (msg.type === 'ANALYTICS_GREETING_TIPS') { Analytics.getGreetingRecommendations().then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
+  if (msg.type === 'RESUME_GET_ALL') { ResumeManager.getAll().then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
+  if (msg.type === 'RESUME_ADD') { ResumeManager.add(msg.name, msg.text).then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
+  if (msg.type === 'RESUME_UPDATE') { ResumeManager.update(msg.id, msg.name, msg.text).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+  if (msg.type === 'RESUME_REMOVE') { ResumeManager.remove(msg.id).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
 });
 
 chrome.storage.local.get('processed').then(r => { if (r.processed) state.processed = r.processed; });

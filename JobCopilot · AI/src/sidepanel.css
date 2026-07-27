@@ -1,10 +1,18 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 13px; color: #1f2328; background: #f5f6f8; padding: 10px; }
-.header h1 { font-size: 16px; color: #00a0e9; margin-bottom: 10px; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 13px; color: #1f2328; background: #f5f6f8; }
+
+/* Tab 导航 */
+.tab-nav { display: flex; background: #fff; border-bottom: 2px solid #e3e6ea; position: sticky; top: 0; z-index: 10; }
+.tab-btn { flex: 1; padding: 10px 6px; border: none; background: transparent; cursor: pointer; font-size: 12px; font-weight: 600; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+.tab-btn:hover { color: #00a0e9; background: #f0f8ff; }
+.tab-btn.active { color: #00a0e9; border-bottom-color: #00a0e9; }
+.tab-content { display: none; padding: 10px; }
+.tab-content.active { display: block; }
 
 .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }
 .card-h { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; font-weight: 700; background: #fafbfc; border-bottom: 1px solid #eee; cursor: default; }
 .card-h[data-toggle] { cursor: pointer; }
+.card-h-actions { display: flex; align-items: center; }
 .chev { color: #999; font-size: 12px; }
 .card-b { padding: 12px; }
 
@@ -44,8 +52,72 @@ input[type=file] { width: 100%; font-size: 12px; }
 .job-reason { font-size: 11.5px; margin-top: 2px; }
 .job-reason.m { color: #2b8a3e; } .job-reason.s { color: #c92a2a; }
 
-.mini-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 1px 7px; font-size: 11px; cursor: pointer; color: #888; }
+.mini-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #666; }
+.mini-btn:hover { background: #f0f0f0; }
 .log { max-height: 220px; overflow-y: auto; background: #1a1a2e; border-radius: 6px; padding: 9px; font-family: Consolas, monospace; font-size: 11.5px; }
 .log-item { margin-bottom: 3px; line-height: 1.4; }
 .log-item.info { color: #a0c4ff; } .log-item.success { color: #b7e4c7; } .log-item.error { color: #ff6b6b; } .log-item.warn { color: #ffd166; }
 .log-time { color: #555; margin-right: 5px; }
+
+/* ── Tracker 列表 ── */
+.tracker-filters { display: flex; gap: 6px; margin-bottom: 10px; }
+.tracker-filters select { flex: 1; }
+.tracker-filters input { flex: 2; }
+.tracker-list { max-height: 450px; overflow-y: auto; }
+.tracker-item { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background .1s; }
+.tracker-item:hover { background: #fafbfc; }
+.tracker-item .tracker-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.tracker-item .tracker-name { font-weight: 600; font-size: 13px; flex: 1; }
+.tracker-item .tracker-company { color: #888; font-size: 11.5px; }
+.tracker-item .tracker-meta { font-size: 11px; color: #999; margin-top: 3px; }
+.tracker-item .tracker-greeting { font-size: 11px; color: #666; margin-top: 4px; padding: 4px 6px; background: #f8f9fa; border-radius: 4px; max-height: 40px; overflow: hidden; }
+.tracker-item .tracker-hr-reply { font-size: 11px; color: #27ae60; margin-top: 4px; padding: 4px 6px; background: #f0fdf4; border-radius: 4px; border-left: 3px solid #27ae60; }
+.tracker-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; white-space: nowrap; font-weight: 600; margin-left: 8px; }
+.status-sent { background: #e3f2fd; color: #1976d2; }
+.status-read { background: #fff3e0; color: #e65100; }
+.status-replied { background: #e8f5e9; color: #2e7d32; }
+.status-interview { background: #f3e5f5; color: #7b1fa2; }
+.status-rejected { background: #ffebee; color: #c62828; }
+.status-expired { background: #f5f5f5; color: #757575; }
+
+.status-select { font-size: 11px; padding: 2px 4px; border-radius: 4px; border: 1px solid #ddd; cursor: pointer; margin-top: 4px; }
+
+/* ── 统计面板 ── */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.stat-card { text-align: center; padding: 12px 8px; border-radius: 8px; background: #f8f9fa; }
+.stat-card .stat-num { font-size: 22px; font-weight: 800; }
+.stat-card .stat-label { font-size: 11px; color: #888; margin-top: 2px; }
+.stat-num.blue { color: #00a0e9; }
+.stat-num.green { color: #27ae60; }
+.stat-num.red { color: #c92a2a; }
+.stat-num.purple { color: #8e44ad; }
+
+/* 柱状图 */
+.chart-bar { display: flex; align-items: flex-end; gap: 2px; height: 100px; padding: 5px 0; }
+.chart-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.chart-col .bar-wrap { width: 100%; display: flex; flex-direction: column-reverse; align-items: center; height: 80px; }
+.chart-col .bar-sent { width: 60%; background: #00a0e9; border-radius: 2px 2px 0 0; min-height: 1px; }
+.chart-col .bar-replied { width: 40%; background: #27ae60; border-radius: 2px 2px 0 0; margin-top: 1px; }
+.chart-col .bar-date { font-size: 9px; color: #999; margin-top: 4px; transform: rotate(-45deg); white-space: nowrap; }
+
+/* 排行榜 */
+.rank-list { max-height: 250px; overflow-y: auto; }
+.rank-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #f5f5f5; font-size: 12px; }
+.rank-item .rank-name { flex: 1; }
+.rank-item .rank-bars { display: flex; gap: 4px; align-items: center; }
+.rank-item .rank-bar-total { height: 6px; background: #00a0e9; border-radius: 3px; }
+.rank-item .rank-num { font-size: 11px; color: #888; margin-left: 6px; min-width: 50px; text-align: right; }
+.rank-tag { display: inline-block; padding: 2px 6px; margin: 2px; background: #e3f2fd; border-radius: 4px; font-size: 11px; color: #1976d2; }
+
+/* 简历版本 */
+.resume-ver-item { padding: 10px; border: 1px solid #e3e6ea; border-radius: 6px; margin-bottom: 8px; background: #fafbfc; }
+.resume-ver-item.active-ver { border-color: #00a0e9; background: #f0f8ff; }
+.resume-ver-item .ver-header { display: flex; justify-content: space-between; align-items: center; }
+.resume-ver-item .ver-name { font-weight: 600; }
+.resume-ver-item .ver-preview { font-size: 11px; color: #888; margin-top: 4px; max-height: 40px; overflow: hidden; }
+.ver-actions { display: flex; gap: 4px; }
+.ver-actions button { font-size: 11px; padding: 3px 8px; border: 1px solid #ddd; border-radius: 4px; background: #fff; cursor: pointer; }
+.ver-actions button:hover { background: #f0f0f0; }
+.ver-actions .btn-use { background: #00a0e9; color: #fff; border-color: #00a0e9; }
+.ctrl-btn { padding: 7px; border: 1px solid #d6dbe0; border-radius: 6px; background: #fff; cursor: pointer; font-size: 12px; text-align: center; }
+.ctrl-btn:hover { background: #f0f0f0; }
