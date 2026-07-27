@@ -12,7 +12,9 @@
     var result = "";
     for (var i = 0; i < s.length; i++) {
       var c = s.charCodeAt(i);
-      if (c >= 0xE000 && c <= 0xF8FF) continue;  // PUA (should not appear if innerText used)
+      // BOSS anti-scraping font: digit = PUA - 0xE031 (verified: 0xE031=0, 0xE032=1, 0xE033=2, 0xE036=5)
+      if (c >= 0xE031 && c <= 0xE03A) { result += (c - 0xE031); continue; }
+      if (c >= 0xE000 && c <= 0xF8FF) continue;  // other PUA
       if (c >= 0xD800 && c <= 0xDFFF) { i++; continue; }
       if (c >= 0x200B && c <= 0x200F) continue;
       if (c === 0x2028 || c === 0x2029 || c === 0x202F) continue;
