@@ -29,7 +29,7 @@
   const SEND_SELS = ['button.btn-send', '.btn-send', 'button[class*="send"]', '[class*="send-btn"]'];
   const IMG_SELS = ['.btn-sendimg input[type=file]', '.toolbar input[type=file]', 'input[type=file]'];
 
-  // 诊断：把页面里可编辑元素结构dump成字符串（找不到输入框时回传，便于定位）
+  // 诊断dump
   function dumpInputs() {
     const out = [];
     document.querySelectorAll('[contenteditable="true"], textarea, div[id*="input"], div[class*="input"]').forEach((el, i) => {
@@ -61,7 +61,8 @@
       if (pk && tx.indexOf(pk) >= 0) { target = li; break; }
       if (hk && tx.indexOf(hk) >= 0) { target = li; break; }
     }
-    if (!target) target = items[0]; // 兜底：最新一条（刚建联的通常在顶部）
+    // 找不到匹配的会话时不兜底——宁可不发，不能发错人
+    if (!target) return { ok: false, err: '未找到目标会话（公司:' + (company || '?') + ' 岗位:' + (position || '?') + '）' };
     target.click();
     await sleep(1600);
     return { ok: true };
@@ -108,20 +109,17 @@
     if (!inputText(input).trim()) return { ok: false, err: '文字未填入输入框' };
 
     const before = document.querySelectorAll(SELECTORS.chat.messageSent).length;
-    // 以回车为主发送
     pressEnter(input);
-    // 兜底：若有发送按钮也点一下
     const btn = findVisible(SEND_SELS);
     if (btn && !btn.classList.contains('disabled') && !btn.disabled) btn.click();
 
-    // 验证：输入框被清空 或 新增自己消息气泡 => 成功
     for (let i = 0; i < 12; i++) {
       await sleep(300);
       const cleared = !inputText(input).trim();
       const after = document.querySelectorAll(SELECTORS.chat.messageSent).length;
       if (cleared || after > before) return { ok: true };
     }
-    return { ok: false, err: '发送未确认（输入框未清空、未见新气泡）' };
+    return { ok: false, err: '发送未确认' };
   }
 
   async function doSend(msg) {
@@ -134,15 +132,28 @@
     return { success: true, imageOk: imgOk };
   }
 
-  // 发给当前已打开的会话（点继续沟通后跳进来的就是目标岗位，无需匹配）
-  async function sendActive(image, greeting) {
+  // 发给当前已打开的会话（点"继续沟通"跳转后，BOSS通常直接进入目标会话）
+  // 不再盲点第一个会话——如果输入框隐藏在会话列表后，尝试匹配目标公司
+  async function sendActive(image, greeting, company) {
     let input = await waitVisible(INPUT_SELS, 6000);
     if (!input) {
+      // 不在目标聊天页：尝试在会话列表中找到匹配的会话
       const items = document.querySelectorAll(SELECTORS.chat.userList);
-      if (items[0]) { items[0].click(); await sleep(1500); }
-      input = await waitVisible(INPUT_SELS, 6000);
+      if (items.length > 0) {
+        let found = null;
+        const ck = (company || '').replace(/\s/g, '');
+        for (const li of items) {
+          if (ck && (li.textContent || '').replace(/\s/g, '').indexOf(ck) >= 0) { found = li; break; }
+        }
+        // 找不到匹配的不兜底——宁愿跳过也不发错人
+        if (found) {
+          found.click();
+          await sleep(1500);
+          input = await waitVisible(INPUT_SELS, 6000);
+        }
+      }
     }
-    if (!input) return { success: false, error: '未找到输入框｜' + dumpInputs() };
+    if (!input) return { success: false, error: '未找到输入框（可能不在目标聊天页）｜' + dumpInputs() };
     const imgOk = await sendImage(image);
     await sleep(800);
     const tr = await sendText(greeting);
@@ -156,7 +167,7 @@
       return true;
     }
     if (msg.type === 'SEND_ACTIVE') {
-      sendActive(msg.image, msg.greeting).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
+      sendActive(msg.image, msg.greeting, msg.company).then(r => sendResponse(r)).catch(e => sendResponse({ success: false, error: e.message }));
       return true;
     }
   });

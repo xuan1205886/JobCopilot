@@ -228,6 +228,58 @@ $('btnClearTracker').addEventListener('click', () => {
   }
 });
 
+// 扫描 BOSS 聊天页检测回复
+$('btnScanReplies').addEventListener('click', async () => {
+  addLog('打开BOSS聊天页扫描回复...', 'info');
+  try {
+    // 打开聊天页
+    const tabs = await chrome.tabs.query({ url: '*://*.zhipin.com/web/geek/chat*' });
+    let tab = tabs[0];
+    if (!tab) {
+      tab = await chrome.tabs.create({ url: 'https://www.zhipin.com/web/geek/chat' });
+      await new Promise(r => setTimeout(r, 3000));
+    } else {
+      await chrome.tabs.update(tab.id, { url: 'https://www.zhipin.com/web/geek/chat', active: true });
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    // 扫描会话列表中哪些有HR回复
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => {
+        const items = document.querySelectorAll('.user-list-content li, [class*="user-list"] li, .conversation-item');
+        const replies = [];
+        items.forEach(li => {
+          const text = li.textContent || '';
+          // 检查是否有未读标记或HR的最新消息
+          const badge = li.querySelector('.unread, .badge, [class*="unread"], [class*="badge"]');
+          const lastMsg = li.querySelector('.last-msg, .msg-preview, [class*="last"], [class*="msg"]');
+          const lastMsgText = lastMsg ? lastMsg.textContent.trim() : '';
+          // HR的回复通常不是以"我:"开头且不是招呼语模板
+          const nameEl = li.querySelector('.name, [class*="name"]');
+          const name = nameEl ? nameEl.textContent.trim() : '';
+          if (badge || (lastMsgText && lastMsgText.length > 2 && !lastMsgText.startsWith('熟悉'))) {
+            replies.push({ name: name, lastMsg: lastMsgText.slice(0, 80), hasBadge: !!badge });
+          }
+        });
+        return replies;
+      }
+    });
+    const replies = (results && results[0] && results[0].result) || [];
+    if (replies.length > 0) {
+      addLog('检测到 ' + replies.length + ' 个会话可能有回复，请到追踪页手动更新对应记录的状态', 'success');
+      replies.forEach(r => {
+        addLog('  💬 ' + (r.name || '未知') + ': ' + (r.lastMsg || '').slice(0, 40), 'info');
+      });
+    } else {
+      addLog('未检测到明显回复（可能HR还没有回复，或页面结构已变化）', 'warn');
+    }
+    // 切回追踪tab
+    document.querySelector('.tab-btn[data-tab="tab-tracker"]').click();
+  } catch (e) {
+    addLog('扫描失败：' + e.message, 'error');
+  }
+});
+
 // ══════════════════════════════════════════════════
 //  Tab 3: 数据分析
 // ══════════════════════════════════════════════════

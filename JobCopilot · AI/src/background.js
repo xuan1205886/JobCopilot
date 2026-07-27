@@ -187,12 +187,12 @@ async function runDeliver(jobIds) {
     await sendToTab(tab.id, { type: 'GO_CHAT', job: job });
     await waitTabComplete(tab.id); await sleep(2500);
 
-    // 4. 聊天页当前打开的即该岗位会话，先发图片再发招呼语（无需匹配）
+    // 4. 聊天页发送（传入公司名用于会话匹配，防止发错人）
     const u = await curUrl(tab.id);
     if (u.indexOf('/web/geek/chat') < 0) { recordFail(job, '未跳转聊天页'); log('  未进入聊天页，跳过', 'error'); progress(k + 1, ids.length, '投递'); continue; }
     await ensureInjected(tab.id, 'src/content-chat.js');
     log('  发简历图片 + 招呼语...');
-    const r = await sendToTab(tab.id, { type: 'SEND_ACTIVE', image: cfg.resumeImage || '', greeting: greeting });
+    const r = await sendToTab(tab.id, { type: 'SEND_ACTIVE', image: cfg.resumeImage || '', greeting: greeting, company: job.company || '' });
     if (r && r.success) { recordOk(job); state.processed[job.id] = 1; await chrome.storage.local.set({ processed: state.processed }); log('  ✓ 投递成功', 'success'); }
     else { recordFail(job, (r && r.error) || '发送失败'); log('  失败：' + (r && r.error), 'error'); }
     progress(k + 1, ids.length, '投递');
@@ -235,6 +235,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'RESUME_ADD') { ResumeManager.add(msg.name, msg.text).then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
   if (msg.type === 'RESUME_UPDATE') { ResumeManager.update(msg.id, msg.name, msg.text).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
   if (msg.type === 'RESUME_REMOVE') { ResumeManager.remove(msg.id).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+  // 扫描BOSS聊天列表中的回复，自动更新状态
+  if (msg.type === 'SCAN_REPLIES') {
+    const updates = msg.replies || [];
+    if (updates.length > 0) {
+      Tracker.batchUpdateStatus(updates).then(n => sendResponse({ updated: n })).catch(() => sendResponse({ updated: 0 }));
+    } else { sendResponse({ updated: 0 }); }
+    return true;
+  }
 });
 
 chrome.storage.local.get('processed').then(r => { if (r.processed) state.processed = r.processed; });
