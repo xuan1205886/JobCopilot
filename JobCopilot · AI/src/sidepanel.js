@@ -525,12 +525,24 @@ async function deleteResumeVer(id) {
   refreshResumeVersions();
 }
 
-// ===== SW 通信封装 =====
-function sendToSW(msg) {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage(msg, (resp) => {
-      if (chrome.runtime.lastError) resolve(null);
-      else resolve(resp);
-    });
+// ===== SW 通信封装（带重试，防止 SW 被回收） =====
+function sendToSW(msg, retries) {
+  retries = retries || 3;
+  return new Promise(function(resolve) {
+    function attempt(n) {
+      chrome.runtime.sendMessage(msg, function(resp) {
+        if (chrome.runtime.lastError) {
+          if (n < retries) {
+            setTimeout(function() { attempt(n + 1); }, 300);
+          } else {
+            resolve(null);
+          }
+        } else {
+          resolve(resp);
+        }
+      });
+    }
+    attempt(0);
+  });
   });
 }
