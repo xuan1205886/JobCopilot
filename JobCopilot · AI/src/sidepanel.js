@@ -2,15 +2,6 @@
 var $ = function(id) { return document.getElementById(id); };
 var CFG_FIELDS = ['dsKey', 'resumeText', 'keyword', 'city', 'count'];
 
-// 持久连接：保持 SW 存活，避免被浏览器回收导致 "Receiving end does not exist"
-var _keepAlivePort = chrome.runtime.connect({ name: 'sidepanel-keepalive' });
-_keepAlivePort.onDisconnect.addListener(function() {
-  // SW 被回收后自动重连，350ms 后重试（给它启动时间）
-  setTimeout(function() {
-    _keepAlivePort = chrome.runtime.connect({ name: 'sidepanel-keepalive' });
-  }, 350);
-});
-
 // ===== Tab 切换 =====
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
