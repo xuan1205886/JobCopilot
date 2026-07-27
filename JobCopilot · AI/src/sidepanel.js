@@ -228,53 +228,145 @@ $('btnClearTracker').addEventListener('click', () => {
   }
 });
 
-// 扫描 BOSS 聊天页检测回复
+// 扫描 BOSS 聊天页检测回复，自动匹配追踪记录并更新状态
 $('btnScanReplies').addEventListener('click', async () => {
   addLog('打开BOSS聊天页扫描回复...', 'info');
   try {
+    // 先获取所有追踪记录用于匹配
+    const records = await sendToSW({ type: 'TRACKER_GET_ALL' }) || [];
+    const sentRecords = records.filter(r => r.status === 'sent');
+    if (sentRecords.length === 0) {
+      addLog('没有状态为「已投递」的记录需要扫描', 'warn');
+      return;
+    }
+
     // 打开聊天页
     const tabs = await chrome.tabs.query({ url: '*://*.zhipin.com/web/geek/chat*' });
     let tab = tabs[0];
     if (!tab) {
       tab = await chrome.tabs.create({ url: 'https://www.zhipin.com/web/geek/chat' });
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise(r => setTimeout(r, 4000));
     } else {
       await chrome.tabs.update(tab.id, { url: 'https://www.zhipin.com/web/geek/chat', active: true });
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise(r => setTimeout(r, 3000));
     }
-    // 扫描会话列表中哪些有HR回复
+
+    // 把追踪里的公司名传给扫描脚本用于匹配
+    const companyNames = sentRecords.map(r => r.company).filter(Boolean);
+
+    // 扫描会话列表，提取所有对话的公司名和最新消息
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => {
-        const items = document.querySelectorAll('.user-list-content li, [class*="user-list"] li, .conversation-item');
-        const replies = [];
-        items.forEach(li => {
-          const text = li.textContent || '';
-          // 检查是否有未读标记或HR的最新消息
-          const badge = li.querySelector('.unread, .badge, [class*="unread"], [class*="badge"]');
-          const lastMsg = li.querySelector('.last-msg, .msg-preview, [class*="last"], [class*="msg"]');
-          const lastMsgText = lastMsg ? lastMsg.textContent.trim() : '';
-          // HR的回复通常不是以"我:"开头且不是招呼语模板
-          const nameEl = li.querySelector('.name, [class*="name"]');
-          const name = nameEl ? nameEl.textContent.trim() : '';
-          if (badge || (lastMsgText && lastMsgText.length > 2 && !lastMsgText.startsWith('熟悉'))) {
-            replies.push({ name: name, lastMsg: lastMsgText.slice(0, 80), hasBadge: !!badge });
+      func: (targetCompanies) => {
+        // 通用：遍历页面中所有可见的会话条目容器
+        var allLis = document.querySelectorAll('[class*="user-list"] li, [class*="conversation"] li, [class*="chat-list"] li');
+        if (!allLis.length) {
+          // 备选：更宽泛的选择器
+          var chatPanel = document.querySelector('[class*="chat-panel"], [class*="user-list"], [class*="conversation-list"]');
+          if (chatPanel) allLis = chatPanel.querySelectorAll('li');
+        }
+        var conversations = [];
+        for (var i = 0; i < allLis.length; i++) {
+          var li = allLis[i];
+          var fullText = (li.innerText || li.textContent || '');
+          // 跳过太短的（不是真实会话）
+          if (fullText.length < 3) continue;
+
+          // 提取公司名：取文本中第一个看起来像公司名的部分
+          var companyName = '';
+          var titleEl = li.querySelector('[class*="name"], [class*="title"], [class*="company"]');
+          if (titleEl) {
+            companyName = (titleEl.innerText || titleEl.textContent || '').trim();
+          } else {
+            // 从完整文本中提取：取第一行作为名称
+            var lines = fullText.split(/\n/);
+            companyName = (lines[0] || '').trim();
           }
-        });
-        return replies;
-      }
+
+          // 检查是否有HR的最后一条消息（在Boss直聘中，最新消息显示在preview区域）
+          var previewEl = li.querySelector('[class*="preview"], [class*="last"], [class*="msg"], [class*="text"], [class*="abstract"]');
+          var lastMsgText = previewEl ? (previewEl.innerText || previewEl.textContent || '').trim() : '';
+
+          // 检查红点/未读标记
+          var badgeEl = li.querySelector('[class*="unread"], [class*="badge"], [class*="count"], [class*="dot"], .red-dot');
+          var hasBadge = !!(badgeEl && badgeEl.offsetParent !== null);
+
+          // 判断是否是HR发来的（不是"我"发的，不以招呼语开头）
+          var fromHR = false;
+          if (lastMsgText && lastMsgText.length > 2) {
+            // 去除"我: "或"You: "前缀
+            var bareMsg = lastMsgText.replace(/^(我|You|Me)\s*[:：]\s*/i, '');
+            // 不是我们发出去的招呼语（招呼语通常以"熟悉"开头）
+            if (bareMsg && !bareMsg.startsWith('熟悉') && !bareMsg.startsWith('你好') && !bareMsg.startsWith('您好')) {
+              fromHR = true;
+            }
+          }
+
+          // 匹配目标公司
+          var matchedCompany = '';
+          for (var j = 0; j < targetCompanies.length; j++) {
+            var tc = targetCompanies[j].replace(/\s/g, '');
+            var cn = companyName.replace(/\s/g, '');
+            if (tc && cn && (cn.indexOf(tc) >= 0 || tc.indexOf(cn) >= 0)) {
+              matchedCompany = targetCompanies[j];
+              break;
+            }
+          }
+
+          conversations.push({
+            name: companyName.slice(0, 40),
+            lastMsg: lastMsgText.slice(0, 120),
+            hasBadge: hasBadge,
+            fromHR: fromHR,
+            matchedCompany: matchedCompany
+          });
+        }
+        return conversations;
+      },
+      args: [companyNames]
     });
-    const replies = (results && results[0] && results[0].result) || [];
-    if (replies.length > 0) {
-      addLog('检测到 ' + replies.length + ' 个会话可能有回复，请到追踪页手动更新对应记录的状态', 'success');
-      replies.forEach(r => {
-        addLog('  💬 ' + (r.name || '未知') + ': ' + (r.lastMsg || '').slice(0, 40), 'info');
-      });
-    } else {
-      addLog('未检测到明显回复（可能HR还没有回复，或页面结构已变化）', 'warn');
+
+    var conversations = (results && results[0] && results[0].result) || [];
+    if (!conversations.length) {
+      addLog('未找到任何会话（页面可能还在加载或结构已变）', 'warn');
+      return;
     }
+
+    addLog('找到 ' + conversations.length + ' 个会话', 'info');
+
+    // 匹配并批量更新状态
+    var updatedCount = 0;
+    for (var ci = 0; ci < conversations.length; ci++) {
+      var conv = conversations[ci];
+      if (!conv.matchedCompany) continue;
+      if (conv.fromHR || conv.hasBadge) {
+        // 找到匹配的追踪记录
+        var matched = sentRecords.find(function(r) {
+          return (r.company || '').replace(/\s/g, '') === conv.matchedCompany.replace(/\s/g, '');
+        });
+        if (matched) {
+          // 根据消息内容判断是「已回复」还是「不合适」
+          var isRejection = conv.lastMsg.indexOf('不合适') >= 0 ||
+                             conv.lastMsg.indexOf('不匹配') >= 0 ||
+                             conv.lastMsg.indexOf('抱歉') >= 0;
+          var newStatus = isRejection ? 'rejected' : 'replied';
+          await sendToSW({ type: 'TRACKER_UPDATE_STATUS', recordId: matched.id, status: newStatus, hrReply: conv.lastMsg });
+          updatedCount++;
+          addLog('  ✅ ' + conv.name + ' → ' + (isRejection ? '不合适' : '已回复') + ': ' + conv.lastMsg.slice(0, 40), isRejection ? 'warn' : 'success');
+        }
+      }
+    }
+
+    if (updatedCount > 0) {
+      addLog('自动更新了 ' + updatedCount + ' 条记录', 'success');
+      refreshTracker();
+    } else {
+      addLog('没有找到匹配的回复（可以手动去追踪页改状态）', 'warn');
+    }
+
     // 切回追踪tab
-    document.querySelector('.tab-btn[data-tab="tab-tracker"]').click();
+    var trackerBtn = document.querySelector('.tab-btn[data-tab="tab-tracker"]');
+    if (trackerBtn) trackerBtn.click();
   } catch (e) {
     addLog('扫描失败：' + e.message, 'error');
   }
