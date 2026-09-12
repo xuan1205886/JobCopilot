@@ -9,8 +9,6 @@
   <!-- Tab 导航 -->
   <div class="tab-nav">
     <button class="tab-btn active" data-tab="tab-deliver">🚀 投递</button>
-    <button class="tab-btn" data-tab="tab-tracker">📋 追踪</button>
-    <button class="tab-btn" data-tab="tab-analytics">📊 分析</button>
     <button class="tab-btn" data-tab="tab-settings">⚙ 设置</button>
   </div>
 
@@ -79,76 +77,6 @@
     </section>
   </div>
 
-  <!-- Tab 2: 追踪记录 -->
-  <div class="tab-content" id="tab-tracker">
-    <section class="card">
-      <div class="card-h">
-        <span>📋 投递记录</span>
-        <div class="card-h-actions">
-          <span id="trackerCount" style="font-size:12px;color:#888;margin-right:8px"></span>
-          <button class="mini-btn" id="btnScanReplies">🔍 扫描回复</button>
-          <button class="mini-btn" id="btnExportCSV">导出CSV</button>
-          <button class="mini-btn" id="btnClearTracker" style="color:#c92a2a">清空</button>
-        </div>
-      </div>
-      <div class="card-b" style="padding:8px">
-        <div class="tracker-filters">
-          <select id="filterStatus">
-            <option value="all">全部状态</option>
-            <option value="sent">已投递</option>
-            <option value="read">HR已读</option>
-            <option value="replied">已回复</option>
-            <option value="interview">约面试</option>
-            <option value="rejected">不合适</option>
-            <option value="expired">已过期</option>
-          </select>
-          <input type="text" id="filterCompany" placeholder="搜索公司/岗位...">
-        </div>
-        <div id="trackerList" class="tracker-list"></div>
-      </div>
-    </section>
-  </div>
-
-  <!-- Tab 3: 数据分析 -->
-  <div class="tab-content" id="tab-analytics">
-    <div id="analyticsContent">
-      <section class="card">
-        <div class="card-h"><span>📊 核心指标</span></div>
-        <div class="card-b">
-          <div class="stats-grid" id="statsGrid"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-h"><span>📈 每日投递趋势（近14天）</span></div>
-        <div class="card-b">
-          <div class="chart-bar" id="dailyChart"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-h"><span>🏷 高回复率技能标签 TOP 10</span></div>
-        <div class="card-b">
-          <div id="tagRank"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-h"><span>🏢 公司回复情况</span></div>
-        <div class="card-b">
-          <div id="companyRank" class="rank-list"></div>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-h"><span>💡 招呼语优化建议</span></div>
-        <div class="card-b">
-          <div id="greetingTips" style="color:#888;font-size:12px">💡 状态需要手动更新：去「追踪」Tab 改记录状态，或点「🔍 扫描回复」自动检测</div>
-        </div>
-      </section>
-    </div>
-  </div>
-
   <!-- Tab 4: 设置 -->
   <div class="tab-content" id="tab-settings">
     <section class="card">
@@ -173,9 +101,9 @@
       <div class="card-h"><span>ℹ 关于</span></div>
       <div class="card-b">
         <p style="color:#666;line-height:1.6">
-          <strong>JobCopilot v1.1.0</strong> — AI 求职智能体<br>
+          <strong>JobCopilot v1.2.0</strong> — AI 求职智能体<br>
           基于原版 <a href="https://github.com/huluobo2237-pixel/JobCopilot" target="_blank">JobCopilot</a> (MIT) 增强<br>
-          新增：投递追踪 · 回复率分析 · 多简历版本 · 数据导出
+          新增：多简历版本
         </p>
       </div>
     </section>

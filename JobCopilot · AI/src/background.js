@@ -1,5 +1,5 @@
 // ===== BOSS Service Worker =====
-importScripts('/src/selectors.js', '/src/tracker.js');
+importScripts('/src/selectors.js', '/src/utils.js', '/src/resume-manager.js');
 const DS_ENDPOINT = 'https://api.deepseek.com/v1/chat/completions';
 const DS_MODEL = 'deepseek-chat';
 
@@ -206,8 +206,6 @@ async function runDeliver(jobIds) {
 }
 function recordOk(job) {
   state.results.push({ id: job.id, name: job.name, ok: true });
-  const greeting = state.greetings[job.id] || '';
-  Tracker.add(job, greeting, 'default').catch(() => {});
 }
 function recordFail(job, msg) { state.results.push({ id: job.id, name: job.name, ok: false, msg: msg }); }
 function finishDeliver() {
@@ -228,23 +226,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'STOP') { state.aborted = true; state.paused = false; log('已停止', 'warn'); state.phase = 'idle'; pushPhase(); sendResponse({ ok: true }); return; }
   if (msg.type === 'RESET') { state.processed = {}; chrome.storage.local.set({ processed: {} }); state.jobs = []; state.screened = []; state.greetings = {}; state.results = []; state.phase = 'idle'; pushPhase(); log('已重置', 'warn'); sendResponse({ ok: true }); return; }
   if (msg.type === 'GET_STATE') { sendResponse({ phase: state.phase, screened: state.screened }); return; }
-  if (msg.type === 'TRACKER_GET_ALL') { Tracker.getAll().then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
-  if (msg.type === 'TRACKER_UPDATE_STATUS') { Tracker.updateStatus(msg.recordId, msg.status, msg.hrReply).then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
-  if (msg.type === 'TRACKER_REMOVE') { Tracker.remove(msg.recordId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
-  if (msg.type === 'TRACKER_EXPORT') { Tracker.exportCSV().then(r => sendResponse(r)).catch(() => sendResponse('')); return true; }
-  if (msg.type === 'TRACKER_CLEAR') { Tracker.clearAll().then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
-  if (msg.type === 'ANALYTICS_GET') { Analytics.getStats().then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
-  if (msg.type === 'ANALYTICS_GREETING_TIPS') { Analytics.getGreetingRecommendations().then(r => sendResponse(r)).catch(() => sendResponse(null)); return true; }
   if (msg.type === 'RESUME_GET_ALL') { ResumeManager.getAll().then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
   if (msg.type === 'RESUME_ADD') { ResumeManager.add(msg.name, msg.text).then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
   if (msg.type === 'RESUME_UPDATE') { ResumeManager.update(msg.id, msg.name, msg.text).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
   if (msg.type === 'RESUME_REMOVE') { ResumeManager.remove(msg.id).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
-  if (msg.type === 'SCAN_REPLIES') {
-    const updates = msg.replies || [];
-    if (updates.length > 0) { Tracker.batchUpdateStatus(updates).then(n => sendResponse({ updated: n })).catch(() => sendResponse({ updated: 0 })); }
-    else { sendResponse({ updated: 0 }); }
-    return true;
-  }
 });
 
 chrome.storage.local.get('processed').then(r => { if (r.processed) state.processed = r.processed; });
