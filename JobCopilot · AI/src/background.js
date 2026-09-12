@@ -219,6 +219,7 @@ function finishDeliver() {
 // ── Messages ──
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'DEBUG_SALARY') { log(msg.text, 'info'); return; }
+  if (msg.type === 'DEBUG_CARD') { log(msg.text, 'info'); return; }
   if (msg.type === 'START_COLLECT') { runCollect(); sendResponse({ ok: true }); return; }
   if (msg.type === 'START_DELIVER') { runDeliver(msg.jobIds); sendResponse({ ok: true }); return; }
   if (msg.type === 'PAUSE') { state.paused = true; log('已暂停', 'warn'); sendResponse({ ok: true }); return; }

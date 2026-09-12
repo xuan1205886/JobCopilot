@@ -78,9 +78,20 @@
       if (t) tags.push(t);
     }
     var company = "";
-    var compEl = card.querySelector('.company-name a, .company-name, [class*="company-name"], .boss-info .company-name, .company-info a, [class*="company"] a');
-    if (compEl) company = cleanText(compEl.innerText || compEl.textContent);
-    return { id: id, name: rawName || "unknown", salary: salary, tags: tags, company: company, link: link };
+    var compEl = card.querySelector('.company-info .name a, .company-info .name, .company-name a, .company-name, h3.name a, h3 a, [class*="company"] a');
+    if (compEl) company = cleanText(compEl.innerText || compEl.textContent || "");
+
+    var city = "";
+    var areaEl = card.querySelector('.job-area, [class*="area"], [class*="location"], [class*="city"]');
+    if (areaEl) city = Utils.cityFromArea(areaEl.innerText || areaEl.textContent || "");
+
+    if (!window._debugCardCount) window._debugCardCount = 0;
+    if (window._debugCardCount < 3) {
+      window._debugCardCount++;
+      try { chrome.runtime.sendMessage({ type: "DEBUG_CARD", text: "[" + window._debugCardCount + "] company raw=" + JSON.stringify(compEl ? (compEl.innerText || compEl.textContent) : null) + " clean=" + JSON.stringify(company) + " | city raw=" + JSON.stringify(areaEl ? (areaEl.innerText || areaEl.textContent) : null) + " clean=" + JSON.stringify(city) }); } catch (e) {}
+    }
+
+    return { id: id, name: rawName || "unknown", salary: salary, tags: tags, company: company, city: city, link: link };
   }
 
   async function scrape(count) {
@@ -90,6 +101,7 @@
     var jobs = [];
     var stall = 0;
     window._debugCount = 0;
+    window._debugCardCount = 0;
     for (var loop = 0; loop < 40 && jobs.length < count && stall < 4; loop++) {
       var cards = getCards();
       var added = 0;
@@ -143,9 +155,48 @@
     return document.querySelector('.job-detail-box, .job-detail-wrapper, [class*="job-detail"], .detail-content, .chat-panel, .right-panel');
   }
 
+  // 滚动加载更多卡片，直到找到目标或到列表末尾（BOSS 虚拟列表）
+  async function scrollToFindCard(job, maxScrolls) {
+    maxScrolls = maxScrolls || 12;
+    var seenIds = {};
+    function checkCards(cards) {
+      for (var i = 0; i < cards.length; i++) {
+        var j = parseCard(cards[i]);
+        if (j.id) seenIds[j.id] = 1;
+        if (job.id && j.id === job.id) return cards[i];
+        if (j.name === job.name && (!job.company || j.company === job.company)) return cards[i];
+      }
+      if (job.link) {
+        var byLink = document.querySelector('a[href="' + job.link + '"]');
+        if (byLink) { var cardEl = byLink.closest('li'); if (cardEl) return cardEl; }
+      }
+      if (job.id && job.id.indexOf('|') === -1) {
+        var byId = document.querySelector('a[href*="/job_detail/' + job.id + '.html"]');
+        if (byId) { var cardEl2 = byId.closest('li'); if (cardEl2) return cardEl2; }
+      }
+      return null;
+    }
+    var found = checkCards(getCards());
+    if (found) return found;
+    for (var s = 0; s < maxScrolls; s++) {
+      var beforeCount = Object.keys(seenIds).length;
+      window.scrollTo(0, document.body.scrollHeight);
+      var container = document.querySelector('.job-list-container, .job-list-box, [class*="job-list"]');
+      if (container) container.scrollTop = container.scrollHeight;
+      await sleep(1500);
+      var cards = getCards();
+      found = checkCards(cards);
+      if (found) return found;
+      var afterCount = Object.keys(seenIds).length;
+      if (afterCount <= beforeCount && s >= 2) break;
+    }
+    return null;
+  }
+
   async function openJD(job) {
     var card = findCardByJob(job);
-    if (!card) return { success: false, error: "card not found" };
+    if (!card) { card = await scrollToFindCard(job); }
+    if (!card) return { success: false, error: "card not found for JD" };
     card.scrollIntoView({ block: "center" });
     await sleep(400);
     card.click();
@@ -162,7 +213,11 @@
 
   async function goChat(job) {
     var card = findCardByJob(job);
-    if (!card) return { success: false, error: "card not found" };
+    if (!card) { card = await scrollToFindCard(job); }
+    if (!card) {
+      var totalCards = getCards().length;
+      return { success: false, error: "card not found (共" + totalCards + "张卡片在DOM中, job.id=" + (job.id || "?") + ")" };
+    }
     var btn = card.querySelector('a.op-btn-chat, .btn-chat, [class*="chat-btn"], [class*="im-chat"]');
     if (!btn) { var panel = getDetailPanel(); var scope = panel || card; btn = scope.querySelector('a.op-btn-chat, .btn-chat, [class*="chat-btn"], [class*="im-chat"]'); }
     if (!btn) {

@@ -4,7 +4,7 @@
 
   var s = {
     jobs: {
-      jobCard: 'li.job-card-box',
+      jobCard: 'li.job-card-box, li[class*="job-card"], li[class*="jobCard"], li[class*="job-item"], [class*="job-card"] > li, [class*="jobCard"] > li, [class*="search-result"] li, .search-result-list li',
       jobName: '.job-name',
       jobSalary: '.job-salary',
       tagList: '.tag-list li',
