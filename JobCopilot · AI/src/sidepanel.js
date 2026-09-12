@@ -1,6 +1,6 @@
 // ===== JobCopilot v1.2 侧边栏：投递 + 设置 =====
 var $ = function(id) { return document.getElementById(id); };
-var CFG_FIELDS = ['dsKey', 'resumeText', 'keyword', 'city', 'count'];
+var CFG_FIELDS = ['dsKey', 'resumeText', 'keyword', 'city', 'count', 'blockWords'];
 
 // ===== Tab 切换 =====
 document.querySelectorAll('.tab-btn').forEach(function(btn) {

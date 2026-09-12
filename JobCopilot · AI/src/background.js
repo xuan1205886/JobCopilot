@@ -21,7 +21,7 @@ function log(text, level) { chrome.runtime.sendMessage({ type: 'LOG', text: text
 function pushPhase() { chrome.runtime.sendMessage({ type: 'PHASE', phase: state.phase }).catch(() => {}); }
 function progress(cur, total, label) { chrome.runtime.sendMessage({ type: 'PROGRESS', cur: cur, total: total, label: label || '' }).catch(() => {}); }
 async function waitIfPaused() { while (state.paused && !state.aborted) await sleep(400); }
-function getCfg() { return chrome.storage.local.get(['dsKey', 'resumeText', 'resumeImage', 'city', 'keyword', 'count']); }
+function getCfg() { return chrome.storage.local.get(['dsKey', 'resumeText', 'resumeImage', 'city', 'keyword', 'count', 'blockWords']); }
 function resumeFull(cfg) { return (cfg.resumeText || '').trim(); }
 function jobInfo(j) { return '岗位：' + (j.name || '') + '\n技能标签：' + ((j.tags || []).join('、')) + '\n薪资：' + (j.salary || '') + '\n公司：' + (j.company || '') + '\n城市：' + (j.city || ''); }
 function findJob(id) { for (var i = 0; i < state.jobs.length; i++) if (state.jobs[i].id === id) return state.jobs[i]; return null; }
@@ -40,8 +40,9 @@ async function callDS(messages, maxTokens) {
 }
 
 async function screenJob(cfg, job) {
-  const sys = '你是资深求职助手。请完全依据下面提供的【求职者简历】，判断某个岗位是否值得该求职者投递。\n【判断标准·适中】保留(match=true)：岗位方向与求职者简历的专业/技能/经历相关，且求职者的经验年限、学历、级别够得着该岗位（不超纲）。剔除(match=false)：方向与简历明显无关；岗位要求的经验/学历/硬技能明显超出简历；岗位级别明显高于求职者当前水平。\n【城市判断】若待判断岗位的城市与求职者目标城市不一致，直接剔除(match=false)。\n【工作年限判定】工作年限只计算毕业（拿到最高学历）后的全职工作年限；教育经历、大学/研究生在读时间、实习经历一律不计入工作经验。判断岗位要求的“X年经验”时，用求职者实际的全职年限对比，不要被在校时间误导。\n请依据简历本身判断，不要套用任何固定行业或级别。\n【输出】只输出一个JSON对象，不要markdown：{"match":true或false,"reason":"一句话理由"}';
-  const user = '求职者简历：\n' + resumeFull(cfg) + '\n\n目标城市：' + (cfg.city || '') + '\n\n待判断岗位：\n' + jobInfo(job) + '\n\n严格输出JSON。';
+  const blockWords = (cfg.blockWords || '').split(/[,，、\s]+/).filter(Boolean).join('、');
+  const sys = '你是资深求职助手。请完全依据下面提供的【求职者简历】，判断某个岗位是否值得该求职者投递。\n【判断标准·适中】保留(match=true)：岗位方向与求职者简历的专业/技能/经历相关，且求职者的经验年限、学历、级别够得着该岗位（不超纲）。剔除(match=false)：方向与简历明显无关；岗位要求的经验/学历/硬技能明显超出简历；岗位级别明显高于求职者当前水平。\n【城市判断】若待判断岗位的城市与求职者目标城市不一致，直接剔除(match=false)。\n【工作年限判定】工作年限只计算毕业（拿到最高学历）后的全职工作年限；教育经历、大学/研究生在读时间、实习经历一律不计入工作经验。判断岗位要求的“X年经验”时，用求职者实际的全职年限对比，不要被在校时间误导。\n【屏蔽词剔除】求职者会提供一组屏蔽词。若该岗位（岗位名/技能标签）与屏蔽词相关的方向或业务相关（例如“私域”对应私域运营/私域流量，“情感”对应情感咨询/情感挽回等），无论岗位名是否直接出现这些字眼，都判定 match=false，reason 写“涉及屏蔽词：<对应词>”。若屏蔽词为空则忽略本规则。\n请依据简历本身判断，不要套用任何固定行业或级别。\n【输出】只输出一个JSON对象，不要markdown：{"match":true或false,"reason":"一句话理由"}';
+  const user = '求职者简历：\n' + resumeFull(cfg) + '\n\n目标城市：' + (cfg.city || '') + '\n\n屏蔽词：' + (blockWords || '（无）') + '\n\n待判断岗位：\n' + jobInfo(job) + '\n\n严格输出JSON。';
   const raw = await callDS([{ role: 'system', content: sys }, { role: 'user', content: user }], 200);
   let p = null;
   try { p = JSON.parse(raw); } catch (e) { const m = raw && raw.match(/\{[\s\S]*\}/); if (m) { try { p = JSON.parse(m[0]); } catch (e2) {} } }
@@ -173,6 +174,16 @@ async function runDeliver(jobIds) {
     log('  读取JD...');
     const jdr = await sendToTab(tab.id, { type: 'OPEN_JD', job: job });
     const jd = (jdr && jdr.jd) || '';
+
+    // 屏蔽词兜底：JD / 岗位名 / 标签字面命中则跳过
+    const blockWords = (cfg.blockWords || '').split(/[,，、\s]+/).filter(Boolean);
+    const hitBlock = blockWords.find(function(w) { return jd.indexOf(w) >= 0 || (job.name || '').indexOf(w) >= 0 || ((job.tags || []).join('、')).indexOf(w) >= 0; });
+    if (hitBlock) {
+      recordFail(job, '涉及屏蔽词：' + hitBlock);
+      log('  涉及屏蔽词「' + hitBlock + '」，跳过', 'warn');
+      progress(k + 1, ids.length, '投递');
+      continue;
+    }
 
     log('  生成招呼语...');
     let greeting = '';
