@@ -234,8 +234,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'RESET') { state.processed = {}; chrome.storage.local.set({ processed: {} }); state.jobs = []; state.screened = []; state.greetings = {}; state.results = []; state.phase = 'idle'; pushPhase(); log('已重置', 'warn'); sendResponse({ ok: true }); return; }
   if (msg.type === 'GET_STATE') { sendResponse({ phase: state.phase, screened: state.screened }); return; }
   if (msg.type === 'RESUME_GET_ALL') { ResumeManager.getAll().then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
-  if (msg.type === 'RESUME_ADD') { ResumeManager.add(msg.name, msg.text).then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
-  if (msg.type === 'RESUME_UPDATE') { ResumeManager.update(msg.id, msg.name, msg.text).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
+  if (msg.type === 'RESUME_ADD') { ResumeManager.add(msg.name, msg.text, msg.image).then(r => sendResponse(r)).catch(() => sendResponse([])); return true; }
+  if (msg.type === 'RESUME_UPDATE') { ResumeManager.update(msg.id, msg.name, msg.text, msg.image).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
   if (msg.type === 'RESUME_REMOVE') { ResumeManager.remove(msg.id).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false })); return true; }
 });
 

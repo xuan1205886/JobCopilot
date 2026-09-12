@@ -89,6 +89,9 @@
           <input type="text" id="newResumeName" placeholder="如: 数据分析方向 / 后端开发方向">
           <label>简历内容</label>
           <textarea id="newResumeText" rows="4" placeholder="粘贴该版本的简历内容..."></textarea>
+          <label>简历图片（可选）</label>
+          <input type="file" id="newResumeImage" accept="image/*">
+          <div id="newResumeImgPrev"></div>
           <div style="display:flex;gap:6px;margin-top:8px">
             <button class="btn-primary" id="btnSaveResumeVer" style="flex:1;margin-top:0">保存</button>
             <button class="ctrl-btn" id="btnCancelResumeVer" style="flex:1">取消</button>

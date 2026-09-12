@@ -28,7 +28,7 @@ chrome.storage.local.get(CFG_FIELDS.concat(['resumeImage']), function(d) {
   if (d.resumeImage) showImg(d.resumeImage);
 });
 
-function showImg(dataUrl) { $('imgPrev').innerHTML = '<img src="' + dataUrl + '">'; }
+function showImg(dataUrl) { $('imgPrev').innerHTML = dataUrl ? '<img src="' + dataUrl + '">' : ''; }
 
 $('resumeImg').addEventListener('change', function(e) {
   var file = e.target.files[0]; if (!file) return;
@@ -140,32 +140,52 @@ function addLog(text, level) {
 //  Tab 4: 简历版本
 // ═══════════════════════════════════
 var _editingResumeId = null;
+var _versionsCache = {};
+var _newResumeImage = '';
 
 async function refreshResumeVersions() {
   var versions = await sendToSW({ type: 'RESUME_GET_ALL' }) || [];
+  var cfg = await chrome.storage.local.get(['resumeText', 'resumeImage']);
+  _versionsCache = {};
   var html = '';
   versions.forEach(function(v) {
+    _versionsCache[v.id] = v;
     var isDefault = v.id === 'default';
-    var activeText = (v.text || '').slice(0, 60);
+    var text = isDefault ? (cfg.resumeText || v.text || '') : (v.text || '');
+    var image = isDefault ? (cfg.resumeImage || v.image || '') : (v.image || '');
+    if (isDefault) { v.text = text; v.image = image; }  // default 镜像当前简历
+    var activeText = text.slice(0, 60);
     html += '<div class="resume-ver-item' + (isDefault ? ' active-ver' : '') + '">'
       + '<div class="ver-header">'
         + '<span class="ver-name">' + esc(v.name) + (isDefault ? ' <span style="font-size:10px;color:#00a0e9">[当前]</span>' : '') + '</span>'
         + '<div class="ver-actions">'
-          + '<button onclick="useResumeVer(\'' + esc(v.id) + '\')">使用</button>'
-          + '<button onclick="editResumeVer(\'' + esc(v.id) + '\',\'' + esc(v.name) + '\',\'' + esc((v.text || '').replace(/'/g,"\\'").replace(/\n/g,'\\n')) + '\')">编辑</button>'
-          + (!isDefault ? '<button onclick="deleteResumeVer(\'' + esc(v.id) + '\')" style="color:#c92a2a">删除</button>' : '')
+          + '<button class="js-use-ver" data-id="' + esc(v.id) + '">使用</button>'
+          + '<button class="js-edit-ver" data-id="' + esc(v.id) + '">编辑</button>'
+          + (!isDefault ? '<button class="js-del-ver" data-id="' + esc(v.id) + '" style="color:#c92a2a">删除</button>' : '')
         + '</div>'
       + '</div>'
+      + (image ? '<div class="ver-preview-img"><img src="' + image + '" style="max-width:100%;max-height:80px;border-radius:4px;display:block;margin:4px 0"></div>' : '')
       + '<div class="ver-preview">' + (activeText || '（空）') + '</div>'
     + '</div>';
   });
   $('resumeVerList').innerHTML = html || '<div style="color:#999">暂无</div>';
 }
 
+$('resumeVerList').addEventListener('click', function(e) {
+  var btn = e.target.closest('button');
+  if (!btn) return;
+  var id = btn.dataset.id;
+  if (btn.classList.contains('js-use-ver')) useResumeVer(id);
+  else if (btn.classList.contains('js-edit-ver')) openEditResumeVer(id);
+  else if (btn.classList.contains('js-del-ver')) deleteResumeVer(id);
+});
+
 $('btnAddResumeVer').addEventListener('click', function() {
   _editingResumeId = null;
+  _newResumeImage = '';
   $('newResumeName').value = '';
   $('newResumeText').value = '';
+  $('newResumeImgPrev').innerHTML = '';
   $('resumeVerForm').style.display = 'block';
 });
 
@@ -173,41 +193,61 @@ $('btnCancelResumeVer').addEventListener('click', function() {
   $('resumeVerForm').style.display = 'none';
 });
 
+$('newResumeImage').addEventListener('change', function(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    _newResumeImage = ev.target.result;
+    $('newResumeImgPrev').innerHTML = '<img src="' + ev.target.result + '" style="max-width:100%;max-height:100px;border-radius:4px">';
+  };
+  reader.readAsDataURL(file);
+});
+
 $('btnSaveResumeVer').addEventListener('click', async function() {
   var name = $('newResumeName').value.trim();
   var text = $('newResumeText').value.trim();
   if (!name) return alert('请输入版本名称');
   if (_editingResumeId) {
-    await sendToSW({ type: 'RESUME_UPDATE', id: _editingResumeId, name: name, text: text });
+    await sendToSW({ type: 'RESUME_UPDATE', id: _editingResumeId, name: name, text: text, image: _newResumeImage });
+    if (_editingResumeId === 'default') {
+      await chrome.storage.local.set({ resumeText: text, resumeImage: _newResumeImage });
+      if ($('resumeText')) $('resumeText').value = text;
+      showImg(_newResumeImage);
+    }
   } else {
-    await sendToSW({ type: 'RESUME_ADD', name: name, text: text });
+    await sendToSW({ type: 'RESUME_ADD', name: name, text: text, image: _newResumeImage });
   }
   $('resumeVerForm').style.display = 'none';
   _editingResumeId = null;
+  _newResumeImage = '';
   refreshResumeVersions();
 });
 
-function useResumeVer(id) {
-  sendToSW({ type: 'RESUME_GET_ALL' }).then(function(versions) {
-    versions = versions || [];
-    var v = versions.find(function(x) { return x.id === id; });
-    if (v && $('resumeText')) {
-      $('resumeText').value = v.text;
-      refreshResumeVersions();
-      addLog('已切换到简历版本：' + v.name, 'info');
-    }
-  });
+async function useResumeVer(id) {
+  var v = _versionsCache[id];
+  if (!v) return;
+  var text = v.text || '';
+  var image = v.image || '';
+  await chrome.storage.local.set({ resumeText: text, resumeImage: image });
+  if ($('resumeText')) $('resumeText').value = text;
+  showImg(image);
+  refreshResumeVersions();
+  addLog('已切换到简历版本：' + v.name, 'info');
 }
 
-function editResumeVer(id, name, text) {
+function openEditResumeVer(id) {
+  var v = _versionsCache[id];
+  if (!v) return;
   _editingResumeId = id;
-  $('newResumeName').value = name;
-  $('newResumeText').value = text.replace(/\\n/g, '\n');
+  $('newResumeName').value = v.name || '';
+  $('newResumeText').value = v.text || '';
+  _newResumeImage = v.image || '';
+  $('newResumeImgPrev').innerHTML = v.image ? '<img src="' + v.image + '" style="max-width:100%;max-height:100px;border-radius:4px">' : '';
   $('resumeVerForm').style.display = 'block';
 }
 
 async function deleteResumeVer(id) {
-  if (!confirm('确认删除？')) return;
+  if (!confirm('确认删除该简历版本？')) return;
   await sendToSW({ type: 'RESUME_REMOVE', id: id });
   refreshResumeVersions();
 }
