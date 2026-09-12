@@ -78,18 +78,16 @@
       if (t) tags.push(t);
     }
     var company = "";
-    var compEl = card.querySelector('.company-info .name a, .company-info .name, .company-name a, .company-name, h3.name a, h3 a, [class*="company"] a');
-    if (compEl) company = cleanText(compEl.innerText || compEl.textContent || "");
+    var gongsiA = card.querySelector('a[href*="/gongsi/"]');
+    if (gongsiA) {
+      var bossNameEl = gongsiA.querySelector('.boss-name');
+      if (bossNameEl) company = cleanText(bossNameEl.innerText || bossNameEl.textContent || "");
+      if (!company) company = cleanText(gongsiA.innerText || gongsiA.textContent || "");
+    }
 
     var city = "";
     var areaEl = card.querySelector('.job-area, [class*="area"], [class*="location"], [class*="city"]');
     if (areaEl) city = Utils.cityFromArea(areaEl.innerText || areaEl.textContent || "");
-
-    if (!window._debugCardCount) window._debugCardCount = 0;
-    if (window._debugCardCount < 3) {
-      window._debugCardCount++;
-      try { chrome.runtime.sendMessage({ type: "DEBUG_CARD", text: "[" + window._debugCardCount + "] company raw=" + JSON.stringify(compEl ? (compEl.innerText || compEl.textContent) : null) + " clean=" + JSON.stringify(company) + " | city raw=" + JSON.stringify(areaEl ? (areaEl.innerText || areaEl.textContent) : null) + " clean=" + JSON.stringify(city) }); } catch (e) {}
-    }
 
     return { id: id, name: rawName || "unknown", salary: salary, tags: tags, company: company, city: city, link: link };
   }
@@ -101,7 +99,6 @@
     var jobs = [];
     var stall = 0;
     window._debugCount = 0;
-    window._debugCardCount = 0;
     for (var loop = 0; loop < 40 && jobs.length < count && stall < 4; loop++) {
       var cards = getCards();
       var added = 0;
