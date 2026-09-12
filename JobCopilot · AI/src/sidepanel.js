@@ -277,3 +277,16 @@ function sendToSW(msg, retries) {
     attempt(0);
   });
 }
+
+// 老数据迁移：补 activeResumeVerId，并把当前简历同步到空的 default 版本（只执行一次）
+(async function migrateResumeVer() {
+  var cfg = await chrome.storage.local.get(['activeResumeVerId', 'resumeText', 'resumeImage']);
+  if (!cfg.activeResumeVerId) {
+    var versions = await sendToSW({ type: 'RESUME_GET_ALL' }) || [];
+    var def = versions.find(function(v) { return v.id === 'default'; });
+    if (def && !def.text && !def.image && (cfg.resumeText || cfg.resumeImage)) {
+      await sendToSW({ type: 'RESUME_UPDATE', id: 'default', text: cfg.resumeText || '', image: cfg.resumeImage || '' });
+    }
+    await chrome.storage.local.set({ activeResumeVerId: 'default' });
+  }
+})();
