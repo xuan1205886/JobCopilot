@@ -20,7 +20,11 @@ const ResumeManager = {
   async update(id, name, text, image) {
     const versions = await this.getAll();
     const v = versions.find(v => v.id === id);
-    if (v) { v.name = name; v.text = text; if (image !== undefined) v.image = image; }
+    if (v) {
+      if (name !== undefined) v.name = name;
+      if (text !== undefined) v.text = text;
+      if (image !== undefined) v.image = image;
+    }
     await this.saveAll(versions);
   },
   async remove(id) {

@@ -30,10 +30,14 @@ chrome.storage.local.get(CFG_FIELDS.concat(['resumeImage']), function(d) {
 
 function showImg(dataUrl) { $('imgPrev').innerHTML = dataUrl ? '<img src="' + dataUrl + '">' : ''; }
 
+async function getActiveVerId() { var c = await chrome.storage.local.get(['activeResumeVerId']); return c.activeResumeVerId || 'default'; }
+async function syncActiveVerText(text) { await sendToSW({ type: 'RESUME_UPDATE', id: await getActiveVerId(), text: text }); }
+async function syncActiveVerImage(image) { await sendToSW({ type: 'RESUME_UPDATE', id: await getActiveVerId(), image: image }); }
+
 $('resumeImg').addEventListener('change', function(e) {
   var file = e.target.files[0]; if (!file) return;
   var reader = new FileReader();
-  reader.onload = function(ev) { showImg(ev.target.result); chrome.storage.local.set({ resumeImage: ev.target.result }); };
+  reader.onload = function(ev) { showImg(ev.target.result); chrome.storage.local.set({ resumeImage: ev.target.result }); syncActiveVerImage(ev.target.result); };
   reader.readAsDataURL(file);
 });
 
@@ -41,6 +45,7 @@ $('saveCfg').addEventListener('click', function() {
   var obj = {};
   CFG_FIELDS.forEach(function(f) { obj[f] = $(f).value.trim ? $(f).value.trim() : $(f).value; });
   chrome.storage.local.set(obj, function() { var s = $('saved'); s.style.display = 'inline'; setTimeout(function() { s.style.display = 'none'; }, 1500); });
+  syncActiveVerText(obj.resumeText || '');
 });
 
 function saveCfgSync() {
@@ -145,23 +150,23 @@ var _newResumeImage = '';
 
 async function refreshResumeVersions() {
   var versions = await sendToSW({ type: 'RESUME_GET_ALL' }) || [];
-  var cfg = await chrome.storage.local.get(['resumeText', 'resumeImage']);
+  var cfg = await chrome.storage.local.get(['activeResumeVerId']);
+  var activeId = cfg.activeResumeVerId || 'default';
   _versionsCache = {};
   var html = '';
   versions.forEach(function(v) {
     _versionsCache[v.id] = v;
-    var isDefault = v.id === 'default';
-    var text = isDefault ? (cfg.resumeText || v.text || '') : (v.text || '');
-    var image = isDefault ? (cfg.resumeImage || v.image || '') : (v.image || '');
-    if (isDefault) { v.text = text; v.image = image; }  // default 镜像当前简历
+    var isActive = v.id === activeId;
+    var text = v.text || '';
+    var image = v.image || '';
     var activeText = text.slice(0, 60);
-    html += '<div class="resume-ver-item' + (isDefault ? ' active-ver' : '') + '">'
+    html += '<div class="resume-ver-item' + (isActive ? ' active-ver' : '') + '">'
       + '<div class="ver-header">'
-        + '<span class="ver-name">' + esc(v.name) + (isDefault ? ' <span style="font-size:10px;color:#00a0e9">[当前]</span>' : '') + '</span>'
+        + '<span class="ver-name">' + esc(v.name) + (isActive ? ' <span style="font-size:10px;color:#00a0e9">[当前]</span>' : '') + '</span>'
         + '<div class="ver-actions">'
           + '<button class="js-use-ver" data-id="' + esc(v.id) + '">使用</button>'
           + '<button class="js-edit-ver" data-id="' + esc(v.id) + '">编辑</button>'
-          + (!isDefault ? '<button class="js-del-ver" data-id="' + esc(v.id) + '" style="color:#c92a2a">删除</button>' : '')
+          + (v.id !== 'default' ? '<button class="js-del-ver" data-id="' + esc(v.id) + '" style="color:#c92a2a">删除</button>' : '')
         + '</div>'
       + '</div>'
       + (image ? '<div class="ver-preview-img"><img src="' + image + '" style="max-width:100%;max-height:80px;border-radius:4px;display:block;margin:4px 0"></div>' : '')
@@ -209,7 +214,7 @@ $('btnSaveResumeVer').addEventListener('click', async function() {
   if (!name) return alert('请输入版本名称');
   if (_editingResumeId) {
     await sendToSW({ type: 'RESUME_UPDATE', id: _editingResumeId, name: name, text: text, image: _newResumeImage });
-    if (_editingResumeId === 'default') {
+    if (_editingResumeId === await getActiveVerId()) {
       await chrome.storage.local.set({ resumeText: text, resumeImage: _newResumeImage });
       if ($('resumeText')) $('resumeText').value = text;
       showImg(_newResumeImage);
@@ -228,7 +233,7 @@ async function useResumeVer(id) {
   if (!v) return;
   var text = v.text || '';
   var image = v.image || '';
-  await chrome.storage.local.set({ resumeText: text, resumeImage: image });
+  await chrome.storage.local.set({ resumeText: text, resumeImage: image, activeResumeVerId: id });
   if ($('resumeText')) $('resumeText').value = text;
   showImg(image);
   refreshResumeVersions();
