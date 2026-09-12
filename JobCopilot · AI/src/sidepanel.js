@@ -88,6 +88,8 @@ function setRunning(running) {
   if (!running) $('btnPause').textContent = '暂停';
 }
 
+function jobSub(j) { return [j.company, j.city, j.salary].filter(Boolean).join(' · '); }
+
 function renderReview(screened) {
   var matched = screened.filter(function(j) { return j.match; });
   var skipped = screened.filter(function(j) { return !j.match; });
@@ -96,13 +98,13 @@ function renderReview(screened) {
   matched.forEach(function(j) {
     html += '<div class="job-item"><input type="checkbox" checked data-id="' + esc(j.id) + '">'
       + '<div class="job-main"><div class="job-title">' + esc(j.name) + '</div>'
-      + '<div class="job-sub">' + esc(j.company) + ' · ' + esc(j.salary) + '</div>'
+      + '<div class="job-sub">' + esc(jobSub(j)) + '</div>'
       + '<div class="job-reason m">✓ ' + esc(j.reason) + '</div></div></div>';
   });
   skipped.forEach(function(j) {
     html += '<div class="job-item skip"><input type="checkbox" disabled data-id="' + esc(j.id) + '">'
       + '<div class="job-main"><div class="job-title">' + esc(j.name) + '</div>'
-      + '<div class="job-sub">' + esc(j.company) + ' · ' + esc(j.salary) + '</div>'
+      + '<div class="job-sub">' + esc(jobSub(j)) + '</div>'
       + '<div class="job-reason s">✗ ' + esc(j.reason) + '</div></div></div>';
   });
   $('reviewList').innerHTML = html || '<div class="job-sub">无岗位</div>';

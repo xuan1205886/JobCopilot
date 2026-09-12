@@ -23,7 +23,7 @@ function progress(cur, total, label) { chrome.runtime.sendMessage({ type: 'PROGR
 async function waitIfPaused() { while (state.paused && !state.aborted) await sleep(400); }
 function getCfg() { return chrome.storage.local.get(['dsKey', 'resumeText', 'resumeImage', 'city', 'keyword', 'count']); }
 function resumeFull(cfg) { return (cfg.resumeText || '').trim(); }
-function jobInfo(j) { return '岗位：' + (j.name || '') + '\n技能标签：' + ((j.tags || []).join('、')) + '\n薪资：' + (j.salary || '') + '\n公司：' + (j.company || ''); }
+function jobInfo(j) { return '岗位：' + (j.name || '') + '\n技能标签：' + ((j.tags || []).join('、')) + '\n薪资：' + (j.salary || '') + '\n公司：' + (j.company || '') + '\n城市：' + (j.city || ''); }
 function findJob(id) { for (var i = 0; i < state.jobs.length; i++) if (state.jobs[i].id === id) return state.jobs[i]; return null; }
 
 async function callDS(messages, maxTokens) {
@@ -40,8 +40,8 @@ async function callDS(messages, maxTokens) {
 }
 
 async function screenJob(cfg, job) {
-  const sys = '你是资深求职助手。请完全依据下面提供的【求职者简历】，判断某个岗位是否值得该求职者投递。\n【判断标准·适中】保留(match=true)：岗位方向与求职者简历的专业/技能/经历相关，且求职者的经验年限、学历、级别够得着该岗位（不超纲）。剔除(match=false)：方向与简历明显无关；岗位要求的经验/学历/硬技能明显超出简历；岗位级别明显高于求职者当前水平。请依据简历本身判断，不要套用任何固定行业或级别。\n【输出】只输出一个JSON对象，不要markdown：{"match":true或false,"reason":"一句话理由"}';
-  const user = '求职者简历：\n' + resumeFull(cfg) + '\n\n待判断岗位：\n' + jobInfo(job) + '\n\n严格输出JSON。';
+  const sys = '你是资深求职助手。请完全依据下面提供的【求职者简历】，判断某个岗位是否值得该求职者投递。\n【判断标准·适中】保留(match=true)：岗位方向与求职者简历的专业/技能/经历相关，且求职者的经验年限、学历、级别够得着该岗位（不超纲）。剔除(match=false)：方向与简历明显无关；岗位要求的经验/学历/硬技能明显超出简历；岗位级别明显高于求职者当前水平。\n【城市判断】若待判断岗位的城市与求职者目标城市不一致，直接剔除(match=false)。\n【工作年限判定】工作年限只计算毕业（拿到最高学历）后的全职工作年限；教育经历、大学/研究生在读时间、实习经历一律不计入工作经验。判断岗位要求的“X年经验”时，用求职者实际的全职年限对比，不要被在校时间误导。\n请依据简历本身判断，不要套用任何固定行业或级别。\n【输出】只输出一个JSON对象，不要markdown：{"match":true或false,"reason":"一句话理由"}';
+  const user = '求职者简历：\n' + resumeFull(cfg) + '\n\n目标城市：' + (cfg.city || '') + '\n\n待判断岗位：\n' + jobInfo(job) + '\n\n严格输出JSON。';
   const raw = await callDS([{ role: 'system', content: sys }, { role: 'user', content: user }], 200);
   let p = null;
   try { p = JSON.parse(raw); } catch (e) { const m = raw && raw.match(/\{[\s\S]*\}/); if (m) { try { p = JSON.parse(m[0]); } catch (e2) {} } }
@@ -58,7 +58,7 @@ async function genGreetingFromJD(cfg, job, jd) {
 }
 
 async function ensureInjected(tabId, file) {
-  try { await chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['src/selectors.js', file] }); } catch (e) {}
+  try { await chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['src/selectors.js', 'src/utils.js', file] }); } catch (e) {}
 }
 function sendToTab(tabId, msg) {
   return new Promise((resolve) => {
@@ -154,11 +154,18 @@ async function runDeliver(jobIds) {
   const ids = (jobIds || []).filter(id => !state.processed[id]);
   if (!ids.length) { log('没有可投递的岗位', 'warn'); finishDeliver(); return; }
   const searchUrl = buildSearchUrl(cfg);
+  const targetCity = resolveCity(cfg).name;
 
   for (let k = 0; k < ids.length; k++) {
     if (state.aborted) break; await waitIfPaused();
     const job = findJob(ids[k]);
     if (!job) { log('[' + (k + 1) + '/' + ids.length + '] 找不到岗位，跳过', 'warn'); continue; }
+    if (job.city && targetCity && !Utils.cityMatches(job.city, targetCity)) {
+      recordFail(job, '城市不符：' + job.city);
+      log('[' + (k + 1) + '/' + ids.length + '] ' + job.name + ' 城市不符（' + job.city + '），跳过', 'warn');
+      progress(k + 1, ids.length, '投递');
+      continue;
+    }
     log('[' + (k + 1) + '/' + ids.length + '] ' + job.name + ' - ' + (job.company || ''));
 
     const tab = await ensureTab(searchUrl);
